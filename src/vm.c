@@ -1,6 +1,7 @@
 #include <vm.h>
 #include <common.h>
 #include <stdio.h>
+#include <compiler.h>
 
 #ifdef DEBUG_TRACE_EXECUTION
 #include <debug.h>
@@ -27,6 +28,14 @@ static Value read_const(size_t offset_size)
     vm.ip += offset;
     return vm.chunk->consts.values[index];
 }
+
+#define BINARY_OP(op) \
+    do \
+    { \
+        Value b = pop(); \
+        Value a = pop(); \
+        push (a op b); \
+    } while(false) \
 
 static InterpretResult run()
 {
@@ -77,17 +86,42 @@ static InterpretResult run()
                 push(constant);
                 break;
             }
+            case OP_NEGATE:
+            {
+                push(-pop());
+                break;
+            }
+            case OP_ADD:
+            {
+                BINARY_OP(+);
+                break;
+            }
+            case OP_SUB:
+            {
+                BINARY_OP(-);
+                break;
+            }
+            case OP_MUL:
+            {
+                BINARY_OP(*);
+                break;
+            }
+            case OP_DIV:
+            {
+                BINARY_OP(/);
+                break;
+            }
         }
     }
 }
 
 #undef READ_INST
+#undef BINARY_OP
 
-InterpretResult interpret(Chunk* chunk)
+InterpretResult interpret(const char* src)
 {
-    vm.chunk = chunk;
-    vm.ip = vm.chunk->code;
-    return run();
+    compile(src);
+    return INTERPRET_OK;
 }
 
 void push(Value value)

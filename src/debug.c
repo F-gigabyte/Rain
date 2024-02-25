@@ -70,6 +70,26 @@ size_t disassemble_inst(Chunk* chunk, size_t offset)
         {
             return const_inst("OP_CONST_LONG", chunk, 8, offset);
         }
+        case OP_NEGATE:
+        {
+            return simple_inst("OP_NEGATE", offset);
+        }
+        case OP_ADD:
+        {
+            return simple_inst("OP_ADD", offset);
+        }
+        case OP_SUB:
+        {
+            return simple_inst("OP_SUB", offset);
+        }
+        case OP_MUL:
+        {
+            return simple_inst("OP_MUL", offset);
+        }
+        case OP_DIV:
+        {
+            return simple_inst("OP_DIV", offset);
+        }
         default:
         {
             printf("Unknown opcode %d\n", inst);

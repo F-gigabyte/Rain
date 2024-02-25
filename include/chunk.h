@@ -14,6 +14,11 @@ typedef enum
     OP_CONST_SHORT,
     OP_CONST_WORD,
     OP_CONST_LONG,
+    OP_NEGATE,
+    OP_ADD,
+    OP_SUB,
+    OP_MUL,
+    OP_DIV,
 } Opcode;
 
 typedef struct
