@@ -34,7 +34,7 @@ size_t add_const(Chunk* chunk, Value value);
 // writes a constant instruction to the bytecode
 void write_chunk_const(Chunk* chunk, size_t const_index, size_t line);
 // reads a constant index from the bytecode
-size_t read_chunk_const(Chunk* chunk, size_t* offset, size_t off_size);
+size_t read_chunk_const(inst_type* inst, size_t* offset, size_t off_size);
 // frees a chunk of bytecode
 void free_chunk(Chunk* chunk);
 

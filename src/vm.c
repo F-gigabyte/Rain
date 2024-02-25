@@ -8,9 +8,14 @@
 
 VM vm;
 
+static void reset_stack()
+{
+    vm.stack_top = vm.stack;
+}
+
 void init_vm()
 {
-
+    reset_stack();
 }
 
 #define READ_INST() (*(vm.ip++))
@@ -18,7 +23,7 @@ void init_vm()
 static Value read_const(size_t offset_size)
 {
     size_t offset = 0;
-    size_t index = read_chunk_const(vm.chunk, &offset, offset_size);
+    size_t index = read_chunk_const(vm.ip, &offset, offset_size);
     vm.ip += offset;
     return vm.chunk->consts.values[index];
 }
@@ -28,6 +33,14 @@ static InterpretResult run()
     for(;;)
     {
 #ifdef DEBUG_TRACE_EXECUTION
+        printf("        ");
+        for(Value* slot = vm.stack; slot < vm.stack_top; slot++)
+        {
+            printf("[ ");
+            print_value(*slot);
+            printf(" ]");
+        }
+        printf("\n");
         disassemble_inst(vm.chunk, (size_t)(vm.ip - vm.chunk->code));
 #endif
         inst_type inst;
@@ -35,34 +48,33 @@ static InterpretResult run()
         {
             case OP_RETURN:
             {
+                print_value(pop());
+                printf("\n");
+                vm.ip++;
                 return INTERPRET_OK;
             }
             case OP_CONST_BYTE:
             {
                 Value constant = read_const(1);
-                print_value(constant);
-                printf("\n");
+                push(constant);
                 break;
             }
             case OP_CONST_SHORT:
             {
                 Value constant = read_const(2);
-                print_value(constant);
-                printf("\n");
+                push(constant);
                 break;
             }
             case OP_CONST_WORD:
             {
                 Value constant = read_const(4);
-                print_value(constant);
-                printf("\n");
+                push(constant);
                 break;
             }
             case OP_CONST_LONG:
             {
                 Value constant = read_const(8);
-                print_value(constant);
-                printf("\n");
+                push(constant);
                 break;
             }
         }
@@ -76,6 +88,18 @@ InterpretResult interpret(Chunk* chunk)
     vm.chunk = chunk;
     vm.ip = vm.chunk->code;
     return run();
+}
+
+void push(Value value)
+{
+    *vm.stack_top = value;
+    vm.stack_top++;
+}
+
+Value pop()
+{
+    vm.stack_top--;
+    return *vm.stack_top;
 }
 
 void free_vm()

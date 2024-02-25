@@ -19,11 +19,12 @@ static size_t simple_inst(const char* name, size_t offset)
 
 static size_t const_inst(const char* name, Chunk* chunk, size_t off_size, size_t offset)
 {
-    size_t constant = read_chunk_const(chunk, &offset, off_size);
+    size_t inc_offset = 0;
+    size_t constant = read_chunk_const(chunk->code + offset + 1, &inc_offset, off_size);
     printf("%-16s %4zu '", name, constant);
     print_value(chunk->consts.values[constant]);
     printf("'\n");
-    return offset + 1;
+    return offset + inc_offset + 1;
 }
 
 size_t disassemble_inst(Chunk* chunk, size_t offset)

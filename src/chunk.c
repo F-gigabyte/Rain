@@ -72,7 +72,7 @@ void write_chunk_const(Chunk* chunk, size_t const_index, size_t line)
     }
 }
 
-size_t read_chunk_const(Chunk* chunk, size_t* offset, size_t off_size)
+size_t read_chunk_const(inst_type* inst, size_t* offset, size_t off_size)
 {
     size_t inst_size = sizeof(inst_type);
     size_t inst_shift = sizeof(inst_type) * 8;
@@ -80,9 +80,9 @@ size_t read_chunk_const(Chunk* chunk, size_t* offset, size_t off_size)
     size_t constant = 0;
     for(size_t i = 0; i < index_size; i++)
     {
-        constant |= chunk->code[*offset + 1 + i] << (inst_shift * i);
+        constant |= inst[i] << (inst_shift * i);
     }
-    *offset += index_size;
+    *offset = index_size;
     return constant;
 }
 
