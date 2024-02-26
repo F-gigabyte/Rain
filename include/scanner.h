@@ -67,10 +67,14 @@ typedef enum {
     TOKEN_IF, // if
     TOKEN_INT_CAST, // int
     TOKEN_IMPORT, // import
+    TOKEN_NOT, // not
     TOKEN_NULL, // null
     TOKEN_OR, // or
     TOKEN_OVERRIDE, // override
     TOKEN_PRINT, // print
+    TOKEN_PRIV, // priv
+    TOKEN_PROT, // prot
+    TOKEN_PUB, // pub
     TOKEN_RET, // ret
     TOKEN_SUPER, // super
     TOKEN_STR_CAST, // str
