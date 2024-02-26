@@ -48,6 +48,9 @@ typedef enum {
 
     TOKEN_IDENT, // identifier
     TOKEN_STR, // string
+    TOKEN_EXPR_STR_START, // expr string start
+    TOKEN_EXPR_STR, // expr string middle
+    TOKEN_EXPR_STR_END, // end of expr string
     TOKEN_INT, // integer
     TOKEN_INT_HEX, // hexadecimal integer
     TOKEN_INT_BIN, // binary integer
