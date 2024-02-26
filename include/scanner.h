@@ -47,10 +47,11 @@ typedef enum {
     TOKEN_LESS_LESS_EQL, // <<=
 
     TOKEN_IDENT, // identifier
-    TOKEN_STR, // string
-    TOKEN_EXPR_STR_START, // expr string start
-    TOKEN_EXPR_STR, // expr string middle
-    TOKEN_EXPR_STR_END, // end of expr string
+    TOKEN_STR_START, // start of string (" or ')
+    TOKEN_STR_BODY, // body of string (text)
+    TOKEN_STR_END, // end of string (" or ')
+    TOKEN_INTERP_START, // start of interpolation expression ({)
+    TOKEN_INTERP_END, // end of interpolation expression (})
     TOKEN_INT, // integer
     TOKEN_INT_HEX, // hexadecimal integer
     TOKEN_INT_BIN, // binary integer
@@ -104,5 +105,7 @@ typedef struct {
 void init_scanner(const char* src);
 // scans a token
 Token scan_token();
+// frees scanner
+void free_scanner();
 
 #endif

@@ -1,10 +1,24 @@
 #include <stdio.h>
 #include <string.h>
 #include <scanner.h>
+#include <stdlib.h>
+
+typedef enum {
+    SCANNER_NORMAL,
+    SCANNER_STR,
+    SCANNER_INTERP,
+} ScannerMode;
+
+struct ModeNode {
+    ScannerMode mode;
+    char str_quote;
+    struct ModeNode* prev;
+};
 
 typedef struct {
     const char* start;
     const char* current;
+    struct ModeNode* mode_node;
     size_t line;
 } Scanner;
 
@@ -15,6 +29,21 @@ void init_scanner(const char* src)
     scanner.start = src;
     scanner.current = src;
     scanner.line = 1;
+    scanner.mode_node = (struct ModeNode*)malloc(sizeof(struct ModeNode));
+    scanner.mode_node->mode = SCANNER_NORMAL;
+    scanner.mode_node->prev = NULL;
+    scanner.mode_node->str_quote = 0;
+}
+
+void free_scanner()
+{
+    struct ModeNode* current = scanner.mode_node;
+    while(current != NULL)
+    {
+        free(current);
+        current = scanner.mode_node->prev;
+        scanner.mode_node = current;
+    }
 }
 
 static bool is_at_end()
@@ -157,7 +186,7 @@ static Token number(char start)
 
 static Token string(char quote)
 {
-    while(peek() != quote && !is_at_end())
+    while(peek() != quote && (peek() != '{' || peek_next() == '{') && !is_at_end())
     {
         if(peek() == '\n')
         {
@@ -169,8 +198,7 @@ static Token string(char quote)
     {
         return error_token("Unterminated string");
     }
-    advance();
-    return make_token(TOKEN_STR);
+    return make_token(TOKEN_STR_BODY);
 }
 
 static TokenType check_keyword(size_t start, size_t len, const char* rest, TokenType type)
@@ -553,6 +581,26 @@ static void skip_whitespace()
     }
 }
 
+static void push_mode(ScannerMode mode, char quote)
+{
+    struct ModeNode* next_mode = malloc(sizeof(struct ModeNode));
+    if(next_mode == NULL)
+    {
+        exit(74);
+    }
+    next_mode->mode = mode;
+    next_mode->prev = scanner.mode_node;
+    next_mode->str_quote = quote;
+    scanner.mode_node = next_mode;
+}
+
+static void pop_mode()
+{
+    struct ModeNode* next_mode = scanner.mode_node->prev;
+    free(scanner.mode_node);
+    scanner.mode_node = next_mode;
+}
+
 Token scan_token()
 {
     skip_whitespace();
@@ -571,161 +619,203 @@ Token scan_token()
     {
         return number(c);
     }
-
-    switch(c)
+    if(scanner.mode_node->mode == SCANNER_NORMAL || scanner.mode_node->mode == SCANNER_INTERP)
     {
-        case ('('):
+        switch(c)
         {
-           return make_token(TOKEN_LEFT_PAREN); 
-        }
-        case (')'):
-        {
-            return make_token(TOKEN_RIGHT_PAREN);
-        }
-        case ('{'):
-        {
-            return make_token(TOKEN_LEFT_BRACE);
-        }
-        case ('}'):
-        {
-            return make_token(TOKEN_RIGHT_BRACE);
-        }
-        case ('['):
-        {
-            return make_token(TOKEN_LEFT_SQR);
-        }
-        case (']'):
-        {
-            return make_token(TOKEN_RIGHT_SQR);
-        }
-        case (';'):
-        {
-            return make_token(TOKEN_SEMICOLON);
-        }
-        case (','):
-        {
-            return make_token(TOKEN_COMMA);
-        }
-        case ('.'):
-        {
-            return make_token(TOKEN_DOT);
-        }
-        case ('-'):
-        {
-            if(match('-'))
+            case ('('):
             {
-               return make_token(TOKEN_MINUS_MINUS);
+                return make_token(TOKEN_LEFT_PAREN); 
             }
-            else if(match('='))
+            case (')'):
             {
-                return make_token(TOKEN_MINUS_EQL);
+                return make_token(TOKEN_RIGHT_PAREN);
             }
-            else
+            case ('{'):
             {
-                return make_token(TOKEN_MINUS);
-            }
-            break;
-        }
-        case ('+'):
-        {
-            if(match('+'))
-            {
-                return make_token(TOKEN_PLUS_PLUS);
-            }
-            else if(match('='))
-            {
-                return make_token(TOKEN_PLUS_EQL);
-            }
-            else
-            {
-                return make_token(TOKEN_PLUS);
-            }
-            break;
-        }
-        case ('*'):
-        {
-            return make_token(match('=') ? TOKEN_STAR_EQL : TOKEN_STAR);
-        }
-        case ('/'):
-        {
-            return make_token(match('=') ? TOKEN_SLASH_EQL : TOKEN_SLASH);
-        }
-        case ('%'):
-        {
-            return make_token(match('=') ? TOKEN_PERC_EQL : TOKEN_PERC);
-        }
-        case ('&'):
-        {
-            return make_token(match('=') ? TOKEN_AMP_EQL : TOKEN_AMP);
-        }
-        case ('|'):
-        {
-            return make_token(match('=') ? TOKEN_LINE_EQL : TOKEN_LINE);
-        }
-        case ('^'):
-        {
-            return make_token(match('=') ? TOKEN_UP : TOKEN_UP_EQL);
-        }
-        case ('!'):
-        {
-            return make_token(match('=') ? TOKEN_BANG : TOKEN_BANG_EQL);
-        }
-        case ('='):
-        {
-            return make_token(match('=') ? TOKEN_EQL_EQL : TOKEN_EQL);
-        }
-        case ('>'):
-        {
-            if(match('='))
-            {
-                return make_token(TOKEN_GREATER_EQL);
-            }
-            else if(match('>'))
-            {
-                if(match('='))
+                if(scanner.mode_node->mode == SCANNER_NORMAL)
                 {
-                    return make_token(TOKEN_GREATER_GREATER_EQL);
+                    return make_token(TOKEN_LEFT_BRACE);
                 }
                 else
                 {
-                    return make_token(TOKEN_GREATER_GREATER);
+                    return error_token("Sub-blocks not allowed in string interpolation");
                 }
             }
-            else
+            case ('}'):
             {
-                return make_token(TOKEN_GREATER);
-            }
-            break;
-        }
-        case ('<'):
-        {
-            if(match('='))
-            {
-                return make_token(TOKEN_LESS_EQL);
-            }
-            else if(match('<'))
-            {
-                if(match('='))
+                if(scanner.mode_node->mode == SCANNER_NORMAL)
                 {
-                    return make_token(TOKEN_LESS_LESS_EQL);
+                    return make_token(TOKEN_RIGHT_BRACE);    
                 }
                 else
                 {
-                    return make_token(TOKEN_LESS_LESS);
+                    pop_mode();
+                    return make_token(TOKEN_INTERP_END);
                 }
             }
-            else
+            case ('['):
             {
-                return make_token(TOKEN_LESS);
+                return make_token(TOKEN_LEFT_SQR);
             }
-            break;
-        }
-        case ('\''):
-        case ('\"'):
-        {
-            return string(c);
+            case (']'):
+            {
+                return make_token(TOKEN_RIGHT_SQR);
+            }
+            case (';'):
+            {
+                return make_token(TOKEN_SEMICOLON);
+            }
+            case (','):
+            {
+                return make_token(TOKEN_COMMA);
+            }
+            case ('.'):
+            {
+                return make_token(TOKEN_DOT);
+            }
+            case ('-'):
+            {
+                if(match('-'))
+                {
+                    return make_token(TOKEN_MINUS_MINUS);
+                }
+                else if(match('='))
+                {
+                    return make_token(TOKEN_MINUS_EQL);
+                }
+                else
+                {
+                    return make_token(TOKEN_MINUS);
+                }
+                break;
+            }
+            case ('+'):
+            {
+                if(match('+'))
+                {
+                    return make_token(TOKEN_PLUS_PLUS);
+                }
+                else if(match('='))
+                {
+                    return make_token(TOKEN_PLUS_EQL);
+                }
+                else
+                {
+                    return make_token(TOKEN_PLUS);
+                }
+                break;
+            }
+            case ('*'):
+            {
+                return make_token(match('=') ? TOKEN_STAR_EQL : TOKEN_STAR);
+            }
+            case ('/'):
+            {
+                return make_token(match('=') ? TOKEN_SLASH_EQL : TOKEN_SLASH);
+            }
+            case ('%'):
+            {
+                return make_token(match('=') ? TOKEN_PERC_EQL : TOKEN_PERC);
+            }
+            case ('&'):
+            {
+                return make_token(match('=') ? TOKEN_AMP_EQL : TOKEN_AMP);
+            }
+            case ('|'):
+            {
+                return make_token(match('=') ? TOKEN_LINE_EQL : TOKEN_LINE);
+            }
+            case ('^'):
+            {
+                return make_token(match('=') ? TOKEN_UP : TOKEN_UP_EQL);
+            }
+            case ('!'):
+            {
+                return make_token(match('=') ? TOKEN_BANG : TOKEN_BANG_EQL);
+            }
+            case ('='):
+            {
+                return make_token(match('=') ? TOKEN_EQL_EQL : TOKEN_EQL);
+            }
+            case ('>'):
+            {
+                if(match('='))
+                {
+                    return make_token(TOKEN_GREATER_EQL);
+                }
+                else if(match('>'))
+                {
+                    if(match('='))
+                    {
+                        return make_token(TOKEN_GREATER_GREATER_EQL);
+                    }
+                    else
+                    {
+                        return make_token(TOKEN_GREATER_GREATER);
+                    }
+                }
+                else
+                {
+                    return make_token(TOKEN_GREATER);
+                }
+                break;
+            }
+            case ('<'):
+            {
+                if(match('='))
+                {
+                    return make_token(TOKEN_LESS_EQL);
+                }
+                else if(match('<'))
+                {
+                    if(match('='))
+                    {
+                        return make_token(TOKEN_LESS_LESS_EQL);
+                    }
+                    else
+                    {
+                        return make_token(TOKEN_LESS_LESS);
+                    }
+                }
+                else
+                {
+                    return make_token(TOKEN_LESS);
+                }
+                break;
+            }
+            case ('\''):
+            case ('\"'):
+            {
+                push_mode(SCANNER_STR, c);
+                return make_token(TOKEN_STR_START);
+            }
+            default:
+            {
+                break;
+            }
         }
     }
-
+    else
+    {
+        if(c == scanner.mode_node->str_quote)
+        {
+            pop_mode();
+            return make_token(TOKEN_STR_END);
+        }
+        else if(c == '{')
+        {
+            if(peek() == '{')
+            {
+                advance();
+            }
+            else
+            {
+                push_mode(SCANNER_INTERP, 0);
+                return make_token(TOKEN_INTERP_START);
+            }
+        }
+        return string(scanner.mode_node->str_quote);
+    }
     return error_token("Unexpected character");
 }
