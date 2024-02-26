@@ -65,6 +65,7 @@ typedef enum {
     TOKEN_FOR, // for
     TOKEN_FUNC, // func
     TOKEN_IF, // if
+    TOKEN_IN, // in
     TOKEN_INT_CAST, // int
     TOKEN_IMPORT, // import
     TOKEN_NOT, // not

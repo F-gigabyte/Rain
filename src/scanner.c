@@ -238,6 +238,10 @@ static TokenType identifier_type()
             }
             break;
         }
+        case ('e'):
+        {
+            return check_keyword(1, 3, "lse", TOKEN_ELSE);
+        }
         case ('f'):
         {
             if(scanner.current - scanner.start > 2)
@@ -270,39 +274,217 @@ static TokenType identifier_type()
         }
         case ('i'):
         {
-
+            if(scanner.current - scanner.start > 1)
+            {
+                switch(scanner.start[1])
+                {
+                    case ('f'):
+                    {
+                        if(scanner.current - scanner.start == 2)
+                        {
+                            return TOKEN_IF;
+                        }
+                        break;
+                    }
+                    case ('n'):
+                    {
+                        if(scanner.current - scanner.start == 2)
+                        {
+                            return TOKEN_IN;
+                        }
+                        else
+                        {
+                            return check_keyword(2, 1, "t", TOKEN_INT_CAST);
+                        }
+                    }
+                    case ('m'):
+                    {
+                        return check_keyword(2, 4, "port", TOKEN_IMPORT);
+                    }
+                    default:
+                    {
+                        break;
+                    }
+                }
+            }
+            break;
         }
         case ('n'):
         {
-
+            if(scanner.current - scanner.start > 2)
+            {
+                switch(scanner.start[1])
+                {
+                    case ('o'):
+                    {
+                        return check_keyword(2, 1, "t", TOKEN_NOT);
+                    }
+                    case('u'):
+                    {
+                        return check_keyword(2, 2, "ll", TOKEN_NULL);
+                    }
+                    default:
+                    {
+                        break;
+                    }
+                }
+            }
+            break;
         }
         case ('o'):
         {
-
+            if(scanner.current - scanner.start > 1)
+            {
+                switch(scanner.start[1])
+                {
+                    case ('r'):
+                    {
+                        if(scanner.current - scanner.start == 0)
+                        {
+                            return TOKEN_OR;
+                        }
+                        break;
+                    }
+                    case ('v'):
+                    {
+                        return check_keyword(2, 6, "erride", TOKEN_OVERRIDE);
+                    }
+                    default:
+                    {
+                        break;
+                    }
+                }
+            }
+            break;
         }
         case ('p'):
         {
-
+            if(scanner.current - scanner.start > 3)
+            {
+                switch(scanner.start[1])
+                {
+                    case ('r'):
+                    {
+                        switch(scanner.start[2])
+                        {
+                            case('i'):
+                            {
+                                switch(scanner.start[3])
+                                {
+                                    case('n'):
+                                    {
+                                        return check_keyword(4, 1, "t", TOKEN_PRINT);
+                                    }
+                                    case('v'):
+                                    {
+                                        if(scanner.current - scanner.start == 0)
+                                        {
+                                            return TOKEN_PRIV;
+                                        }
+                                        break;
+                                    }
+                                    default:
+                                    {
+                                        break;
+                                    }
+                                }
+                            }
+                            case('o'):
+                            {
+                                return check_keyword(3, 1, "t", TOKEN_PROT);
+                            }
+                            default:
+                            {
+                                break;
+                            }
+                        }
+                        break;
+                    }
+                    case ('u'):
+                    {
+                        return check_keyword(2, 1, "b", TOKEN_PUB);
+                    }
+                    default:
+                    {
+                        break;
+                    }
+                }
+            }
+            break;
         }
         case ('r'):
         {
-
+            return check_keyword(1, 2, "et", TOKEN_RET);
         }
         case ('s'):
         {
-
+            if(scanner.current - scanner.start > 2)
+            {
+                switch(scanner.start[1])
+                {
+                    case ('u'):
+                    {
+                        return check_keyword(2, 3, "per", TOKEN_SUPER);
+                    }
+                    case ('t'):
+                    {
+                        return check_keyword(2, 1, "r", TOKEN_STR_CAST);
+                    }
+                    default:
+                    {
+                        break;
+                    }
+                }
+            }
+            break;
         }
         case ('t'):
         {
-
+            if(scanner.current - scanner.start == 4)
+            {
+                switch(scanner.start[1])
+                {
+                    case ('h'):
+                    {
+                        return check_keyword(2, 2, "is", TOKEN_THIS);
+                    }
+                    case ('r'):
+                    {
+                        return check_keyword(2, 2, "ue", TOKEN_TRUE);
+                    }
+                    default:
+                    {
+                        break;
+                    }
+                }
+            }
+            break;
         }
         case ('v'):
         {
-
+            if(scanner.current - scanner.start > 2)
+            {
+                switch(scanner.start[1])
+                {
+                    case ('a'):
+                    {
+                        return check_keyword(2, 1, "r", TOKEN_VAR);
+                    }
+                    case ('i'):
+                    {
+                        return check_keyword(2, 5, "rtual", TOKEN_VIRTUAL);
+                    }
+                    default:
+                    {
+                        break;
+                    }
+                }
+            }
+            break;
         }
         case ('w'):
         {
-
+            return check_keyword(1, 4, "hile", TOKEN_WHILE);
         }
     }
     return TOKEN_IDENT;
