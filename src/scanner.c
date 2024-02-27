@@ -201,6 +201,10 @@ static Token string(ScannerChar quote)
         {
             scanner.line++;
         }
+        else if(peek() == '{' && peek_next() == '{')
+        {
+            advance(); // jump past escape sequence for {
+        }
         else if(peek() == '\\' && peek_next() == quote)
         {
             advance(); // jump past escape sequence for quote
