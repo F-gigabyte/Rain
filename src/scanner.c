@@ -2,6 +2,7 @@
 #include <string.h>
 #include <scanner.h>
 #include <stdlib.h>
+#include <utf8.h>
 
 typedef enum {
     SCANNER_NORMAL,
@@ -11,7 +12,7 @@ typedef enum {
 
 struct ModeNode {
     ScannerMode mode;
-    char str_quote;
+    ScannerChar str_quote;
     struct ModeNode* prev;
 };
 
@@ -20,6 +21,8 @@ typedef struct {
     const char* current;
     struct ModeNode* mode_node;
     size_t line;
+    ScannerChar current_char;
+    ScannerChar next_char;
 } Scanner;
 
 Scanner scanner;
@@ -71,24 +74,31 @@ static Token error_token(const char* msg)
     return token;
 }
 
-static char advance()
+static ScannerChar advance()
 {
-    scanner.current++;
-    return scanner.current[-1];
-}
-
-static char peek()
-{
-    return *scanner.current;
-}
-
-static char peek_next()
-{
+    uint8_t consumed = 0;
+    ScannerChar next_char = decode_utf8_char(scanner.current, &consumed);
+    scanner.current += consumed;
+    scanner.current_char = decode_utf8_char(scanner.current, &consumed);
     if(is_at_end())
     {
-        return 0;
+        scanner.next_char = 0;
     }
-    return scanner.current[1];
+    else
+    {
+        scanner.next_char = decode_utf8_char(scanner.current + consumed, NULL);
+    }
+    return next_char;
+}
+
+static ScannerChar peek()
+{
+    return scanner.current_char;
+}
+
+static ScannerChar peek_next()
+{
+    return scanner.next_char;
 }
 
 static bool match(char expected)
@@ -101,36 +111,36 @@ static bool match(char expected)
     {
         return false;
     }
-    scanner.current++;
+    advance();
     return true;
 }
 
-static bool is_digit(char c)
+static bool is_digit(ScannerChar c)
 {
     return c >= '0' && c <= '9';
 }
 
-static bool is_hex_digit(char c)
+static bool is_hex_digit(ScannerChar c)
 {
     return is_digit(c) || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F');
 }
 
-static bool is_bin_digit(char c)
+static bool is_bin_digit(ScannerChar c)
 {
     return c == '0' || c == '1';
 }
 
-static bool is_oct_digit(char c)
+static bool is_oct_digit(ScannerChar c)
 {
     return c >= '0' && c <= '7';
 }
 
-static bool is_alpha(char c)
+static bool is_alpha(ScannerChar c)
 {
     return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || c == '_';
 }
 
-static Token number(char start)
+static Token number(ScannerChar start)
 {
     if(start == '0' && peek() == 'x' && is_hex_digit(peek_next()))
     {
@@ -184,7 +194,7 @@ static Token number(char start)
     }
 }
 
-static Token string(char quote)
+static Token string(ScannerChar quote)
 {
     while(peek() != quote && (peek() != '{' || peek_next() == '{') && !is_at_end())
     {
@@ -531,7 +541,7 @@ static void skip_whitespace()
 {
     for(;;)
     {
-        char c = peek();
+        ScannerChar c = peek();
         switch(c)
         {
             case (' '):
@@ -581,7 +591,7 @@ static void skip_whitespace()
     }
 }
 
-static void push_mode(ScannerMode mode, char quote)
+static void push_mode(ScannerMode mode, ScannerChar quote)
 {
     struct ModeNode* next_mode = malloc(sizeof(struct ModeNode));
     if(next_mode == NULL)
@@ -609,7 +619,7 @@ Token scan_token()
     {
         return make_token(TOKEN_EOF);
     }
-    char c = advance();
+    ScannerChar c = advance();
 
     if(is_alpha(c))
     {

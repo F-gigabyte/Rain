@@ -101,6 +101,8 @@ typedef struct {
     size_t line;
 } Token;
 
+typedef uint32_t ScannerChar;
+
 // initialises scanner
 void init_scanner(const char* src);
 // scans a token
