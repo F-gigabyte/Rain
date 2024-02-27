@@ -201,6 +201,10 @@ static Token string(ScannerChar quote)
         {
             scanner.line++;
         }
+        else if(peek() == '\\' && peek_next() == quote)
+        {
+            advance(); // jump past escape sequence for quote
+        }
         advance();
     }
     if(is_at_end())
@@ -822,6 +826,13 @@ Token scan_token()
             {
                 push_mode(SCANNER_INTERP, 0);
                 return make_token(TOKEN_INTERP_START);
+            }
+        }
+        else if(c == '\\')
+        {
+            if(peek() == scanner.mode_node->str_quote)
+            {
+                advance();
             }
         }
         return string(scanner.mode_node->str_quote);
