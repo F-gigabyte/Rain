@@ -4,12 +4,6 @@
 #include <stdlib.h>
 #include <utf8.h>
 
-typedef enum {
-    SCANNER_NORMAL,
-    SCANNER_STR,
-    SCANNER_INTERP,
-} ScannerMode;
-
 struct ModeNode {
     ScannerMode mode;
     ScannerChar str_quote;
@@ -47,6 +41,11 @@ void free_scanner()
         current = scanner.mode_node->prev;
         scanner.mode_node = current;
     }
+}
+
+ScannerMode get_scanner_mode()
+{
+    return scanner.mode_node->mode;
 }
 
 static bool is_at_end()
@@ -621,16 +620,16 @@ Token scan_token()
     }
     ScannerChar c = advance();
 
-    if(is_alpha(c))
-    {
-        return identifier();
-    }
-    if(is_digit(c))
-    {
-        return number(c);
-    }
     if(scanner.mode_node->mode == SCANNER_NORMAL || scanner.mode_node->mode == SCANNER_INTERP)
     {
+        if(is_alpha(c))
+        {
+            return identifier();
+        }
+        if(is_digit(c))
+        {
+            return number(c);
+        }
         switch(c)
         {
             case ('('):

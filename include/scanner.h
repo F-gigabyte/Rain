@@ -103,10 +103,18 @@ typedef struct {
 
 typedef uint32_t ScannerChar;
 
+typedef enum {
+    SCANNER_NORMAL,
+    SCANNER_STR,
+    SCANNER_INTERP,
+} ScannerMode;
+
 // initialises scanner
 void init_scanner(const char* src);
 // scans a token
 Token scan_token();
+// gets the mode the scanner is in
+ScannerMode get_scanner_mode();
 // frees scanner
 void free_scanner();
 
