@@ -120,8 +120,20 @@ static InterpretResult run()
 
 InterpretResult interpret(const char* src)
 {
-    compile(src);
-    return INTERPRET_OK;
+    Chunk chunk;
+    init_chunk(&chunk);
+    if(!compile(src, &chunk))
+    {
+        free_chunk(&chunk);
+        return INTERPRET_COMPILE_ERROR;
+    }
+    vm.chunk = &chunk;
+    vm.ip = vm.chunk->code;
+
+    InterpretResult res = run();
+
+    free_chunk(&chunk);
+    return res;
 }
 
 void push(Value value)

@@ -3,6 +3,6 @@
 
 #include <vm.h>
 
-void compile(const char* src);
+bool compile(const char* src, Chunk* chunk);
 
 #endif
