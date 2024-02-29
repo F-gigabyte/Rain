@@ -126,6 +126,14 @@ size_t disassemble_inst(Chunk* chunk, size_t offset)
         {
             return simple_inst("OP_BIT_XOR", offset);
         }
+        case OP_SHIFT_LEFT:
+        {
+            return simple_inst("OP_SHIFT_LEFT", offset);
+        }
+        case OP_SHIFT_RIGHT:
+        {
+            return simple_inst("OP_SHIFT_RIGHT", offset);
+        }
         default:
         {
             printf("Unknown opcode %d\n", inst);

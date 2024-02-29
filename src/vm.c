@@ -359,6 +359,50 @@ static InterpretResult run()
                 }
                 break;
             }
+            case OP_SHIFT_LEFT:
+            {
+                if(IS_INT(peek(0)) && IS_INT(peek(1)))
+                {
+                    int64_t b = AS_INT(pop());
+                    int64_t a = AS_INT(pop());
+                    if(b < 0)
+                    {
+                        runtime_error("Shift value can't be negative");
+                        return INTERPRET_RUNTIME_ERROR;
+                    }
+                    push(INT_VAL(a << b));
+                }
+                else
+                {
+                    runtime_error("Operands must be integers");
+                    return INTERPRET_RUNTIME_ERROR;
+                }
+                break;
+            }
+            case OP_SHIFT_RIGHT:
+            {
+                if(IS_INT(peek(0)) && IS_INT(peek(1)))
+                {
+                    int64_t b = AS_INT(pop());
+                    int64_t a = AS_INT(pop());
+                    if(b < 0)
+                    {
+                        runtime_error("Shift value can't be negative");
+                        return INTERPRET_RUNTIME_ERROR;
+                    }
+                    if(a < 0 && b > 0)
+                    {
+                        a &= 0x7fffffffffffffff;
+                    }
+                    push(INT_VAL(a >> b));
+                }
+                else
+                {
+                    runtime_error("Operands must be integers");
+                    return INTERPRET_RUNTIME_ERROR;
+                }
+                break;
+            }
         }
     }
 }

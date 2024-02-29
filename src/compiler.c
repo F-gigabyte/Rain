@@ -567,6 +567,16 @@ static void binary()
             emit_inst(OP_BIT_XOR);
             break;
         }
+        case TOKEN_LESS_LESS:
+        {
+            emit_inst(OP_SHIFT_LEFT);
+            break;
+        }
+        case TOKEN_GREATER_GREATER:
+        {
+            emit_inst(OP_SHIFT_RIGHT);
+            break;
+        }
         default:
         {
             return;
@@ -731,8 +741,8 @@ ParseRule rules[] = {
     [TOKEN_GREATER_EQL]         = {NULL,     NULL,   PREC_NONE},
     [TOKEN_LESS]                = {NULL,     NULL,   PREC_NONE},
     [TOKEN_LESS_EQL]            = {NULL,     NULL,   PREC_NONE},
-    [TOKEN_LESS_LESS]           = {NULL,     NULL,   PREC_NONE},
-    [TOKEN_GREATER_GREATER]     = {NULL,     NULL,   PREC_NONE},
+    [TOKEN_LESS_LESS]           = {NULL,     binary, PREC_SHIFT},
+    [TOKEN_GREATER_GREATER]     = {NULL,     binary, PREC_SHIFT},
     [TOKEN_MINUS_MINUS]         = {NULL,     NULL,   PREC_NONE},
     [TOKEN_PLUS_PLUS]           = {NULL,     NULL,   PREC_NONE},
     [TOKEN_PLUS_EQL]            = {NULL,     NULL,   PREC_NONE},

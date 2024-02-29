@@ -28,6 +28,8 @@ typedef enum
     OP_BIT_AND,
     OP_BIT_OR,
     OP_BIT_XOR,
+    OP_SHIFT_LEFT,
+    OP_SHIFT_RIGHT,
 } Opcode;
 
 typedef struct
