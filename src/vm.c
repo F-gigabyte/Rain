@@ -2,6 +2,8 @@
 #include <common.h>
 #include <stdio.h>
 #include <compiler.h>
+#include <stdarg.h>
+#include <lines.h>
 
 #ifdef DEBUG_TRACE_EXECUTION
 #include <debug.h>
@@ -14,9 +16,28 @@ static void reset_stack()
     vm.stack_top = vm.stack;
 }
 
+static void runtime_error(const char* format, ...)
+{
+    va_list args;
+    va_start(args, format);
+    vfprintf(stderr, format, args);
+    va_end(args);
+    fputs("\n", stderr);
+
+    size_t inst = vm.ip - vm.chunk->code - 1;
+    size_t line = get_line_number(&vm.chunk->line_encoding, inst);
+    fprintf(stderr, "[line %zu] in script\n", line);
+    reset_stack();
+}
+
 void init_vm()
 {
     reset_stack();
+}
+
+static Value peek(int64_t distance)
+{
+    return vm.stack_top[-1 - distance];
 }
 
 #define READ_INST() (*(vm.ip++))
@@ -28,14 +49,6 @@ static Value read_const(size_t offset_size)
     vm.ip += offset;
     return vm.chunk->consts.values[index];
 }
-
-#define BINARY_OP(op) \
-    do \
-    { \
-        Value b = pop(); \
-        Value a = pop(); \
-        push (a op b); \
-    } while(false) \
 
 static InterpretResult run()
 {
@@ -88,27 +101,156 @@ static InterpretResult run()
             }
             case OP_NEGATE:
             {
-                push(-pop());
+                if(IS_INT(peek(0)))
+                {
+                    push(INT_VAL(-AS_INT(pop())));
+                }
+                else if(IS_FLOAT(peek(0)))
+                {
+                    push(FLOAT_VAL(-AS_FLOAT(pop())));
+                }
+                else
+                {
+                    runtime_error("Operand must be an integer or float");
+                    return INTERPRET_RUNTIME_ERROR;
+                }
                 break;
             }
             case OP_ADD:
             {
-                BINARY_OP(+);
+                if(IS_INT(peek(0)) && IS_INT(peek(1)))
+                {
+                    int64_t b = AS_INT(pop());
+                    int64_t a = AS_INT(pop());
+                    push(INT_VAL(a + b));
+                }
+                else if(IS_INT(peek(0)) && IS_FLOAT(peek(1)))
+                {
+                    int64_t b = AS_INT(pop());
+                    double a = AS_FLOAT(pop());
+                    push(FLOAT_VAL(a + (double)b));
+                }
+                else if(IS_FLOAT(peek(0)) && IS_INT(peek(1)))
+                {
+                    double b = AS_FLOAT(pop());
+                    int64_t a = AS_INT(pop());
+                    push(FLOAT_VAL((double)a + b));
+                }
+                else if(IS_FLOAT(peek(0)) && IS_FLOAT(peek(1)))
+                {
+                    double b = AS_FLOAT(pop());
+                    double a = AS_FLOAT(pop());
+                    push(FLOAT_VAL(a + b));
+                }
+                else
+                {
+                    runtime_error("Operands must be integers or floats");
+                    return INTERPRET_RUNTIME_ERROR;
+                }
                 break;
             }
             case OP_SUB:
             {
-                BINARY_OP(-);
+                if(IS_INT(peek(0)) && IS_INT(peek(1)))
+                {
+                    int64_t b = AS_INT(pop());
+                    int64_t a = AS_INT(pop());
+                    push(INT_VAL(a - b));
+                }
+                else if(IS_INT(peek(0)) && IS_FLOAT(peek(1)))
+                {
+                    int64_t b = AS_INT(pop());
+                    double a = AS_FLOAT(pop());
+                    push(FLOAT_VAL(a - (double)b));
+                }
+                else if(IS_FLOAT(peek(0)) && IS_INT(peek(1)))
+                {
+                    double b = AS_FLOAT(pop());
+                    int64_t a = AS_INT(pop());
+                    push(FLOAT_VAL((double)a - b));
+                }
+                else if(IS_FLOAT(peek(0)) && IS_FLOAT(peek(1)))
+                {
+                    double b = AS_FLOAT(pop());
+                    double a = AS_FLOAT(pop());
+                    push(FLOAT_VAL(a - b));
+                }
+                else
+                {
+                    runtime_error("Operands must be integers or floats");
+                    return INTERPRET_RUNTIME_ERROR;
+                }
                 break;
             }
             case OP_MUL:
             {
-                BINARY_OP(*);
+                if(IS_INT(peek(0)) && IS_INT(peek(1)))
+                {
+                    int64_t b = AS_INT(pop());
+                    int64_t a = AS_INT(pop());
+                    push(INT_VAL(a * b));
+                }
+                else if(IS_INT(peek(0)) && IS_FLOAT(peek(1)))
+                {
+                    int64_t b = AS_INT(pop());
+                    double a = AS_FLOAT(pop());
+                    push(FLOAT_VAL(a * (double)b));
+                }
+                else if(IS_FLOAT(peek(0)) && IS_INT(peek(1)))
+                {
+                    double b = AS_FLOAT(pop());
+                    int64_t a = AS_INT(pop());
+                    push(FLOAT_VAL((double)a * b));
+                }
+                else if(IS_FLOAT(peek(0)) && IS_FLOAT(peek(1)))
+                {
+                    double b = AS_FLOAT(pop());
+                    double a = AS_FLOAT(pop());
+                    push(FLOAT_VAL(a * b));
+                }
+                else
+                {
+                    runtime_error("Operands must be integers or floats");
+                    return INTERPRET_RUNTIME_ERROR;
+                }
                 break;
             }
             case OP_DIV:
             {
-                BINARY_OP(/);
+                if(IS_INT(peek(0)) && IS_INT(peek(1)))
+                {
+                    int64_t b = AS_INT(pop());
+                    int64_t a = AS_INT(pop());
+                    if(b == 0)
+                    {
+                        runtime_error("Divide by 0 error");
+                        return INTERPRET_RUNTIME_ERROR;
+                    }
+                    push(INT_VAL(a / b));
+                }
+                else if(IS_INT(peek(0)) && IS_FLOAT(peek(1)))
+                {
+                    int64_t b = AS_INT(pop());
+                    double a = AS_FLOAT(pop());
+                    push(FLOAT_VAL(a / (double)b));
+                }
+                else if(IS_FLOAT(peek(0)) && IS_INT(peek(1)))
+                {
+                    double b = AS_FLOAT(pop());
+                    int64_t a = AS_INT(pop());
+                    push(FLOAT_VAL((double)a / b));
+                }
+                else if(IS_FLOAT(peek(0)) && IS_FLOAT(peek(1)))
+                {
+                    double b = AS_FLOAT(pop());
+                    double a = AS_FLOAT(pop());
+                    push(FLOAT_VAL(a / b));
+                }
+                else
+                {
+                    runtime_error("Operands must be integers or floats");
+                    return INTERPRET_RUNTIME_ERROR;
+                }
                 break;
             }
         }

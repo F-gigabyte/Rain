@@ -3,7 +3,21 @@
 
 #include <common.h>
 
-typedef double Value;
+typedef enum {
+    VAL_BOOL,
+    VAL_NULL,
+    VAL_INT,
+    VAL_FLOAT,
+} ValueType;
+
+typedef struct {
+    ValueType type;
+    union {
+        bool bool_data;
+        uint64_t int_data;
+        double float_data;
+    } as;
+} Value;
 
 typedef struct
 {
@@ -11,6 +25,25 @@ typedef struct
     size_t size;
     Value* values;
 } ValueArray;
+
+#define BOOL_VAL(value)  ((Value){VAL_BOOL, {.bool_data = value}})
+#define INT_VAL(value)   ((Value){VAL_INT,  {.int_data = value}})
+#define FLOAT_VAL(value) ((Value){VAL_FLOAT, {.float_data = value}})
+#define NULL_VAL         ((Value){VAL_NULL, {.int_data = 0}}) 
+
+#define AS_BOOL(value)   ((value).as.bool_data)
+#define AS_INT(value)    ((value).as.int_data)
+#define AS_FLOAT(value)  ((value).as.float_data)
+
+#define IS_BOOL(value)   ((value).type == VAL_BOOL)
+#define IS_INT(value)    ((value).type == VAL_INT)
+#define IS_FLOAT(value)  ((value).type == VAL_FLOAT)
+inline bool IS_NUMBER(Value value)
+{
+    return IS_INT(value) || IS_FLOAT(value);
+}
+
+#define IS_NULL(value)   ((value).type == VAL_NULL)
 
 // initialises value array
 void init_value_array(ValueArray* array);

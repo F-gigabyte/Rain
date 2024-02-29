@@ -3,9 +3,16 @@
 #include <scanner.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <errno.h>
 
 #ifdef DEBUG_PRINT_CODE
 #include <debug.h>
+#endif
+
+#ifdef LONG64
+#define INT_CAST(str, base) strtol((str), NULL, (base))
+#else
+#define INT_CAST(str, base) strtoll((str), NULL, (base))
 #endif
 
 #ifdef DEBUG_TOKEN_TYPES
@@ -575,8 +582,69 @@ static void grouping()
 
 static void number()
 {
-    double value = strtod(parser.previous.start, NULL);
-    emit_const(value);
+    switch(parser.previous.type)
+    {
+        case TOKEN_INT:
+        {
+            int64_t value = INT_CAST(parser.previous.start, 10);
+            if(errno == ERANGE)
+            {
+                error("Integer is too large");
+                return;
+            }
+            emit_const(INT_VAL(value));
+            break;
+        }
+        case TOKEN_INT_HEX:
+        {
+            int64_t value = INT_CAST(parser.previous.start + 2, 16);
+            if(errno == ERANGE)
+            {
+                error("Integer is too large");
+                return;
+            }
+            emit_const(INT_VAL(value));
+            break;
+        }
+        case TOKEN_INT_BIN:
+        {
+            int64_t value = INT_CAST(parser.previous.start + 2, 2);
+            if(errno == ERANGE)
+            {
+                error("Integer is too large");
+                return;
+            }
+            emit_const(INT_VAL(value));
+            break;
+        }
+        case TOKEN_INT_OCT:
+        {
+            int64_t value = INT_CAST(parser.previous.start + 2, 8);
+            if(errno == ERANGE)
+            {
+                error("Integer is too large");
+                return;
+            }
+            emit_const(INT_VAL(value));
+            break;
+        }
+        case TOKEN_FLOAT:
+        {
+            double value = strtod(parser.previous.start, NULL);
+            if(errno == ERANGE)
+            {
+                error("Float is too large");
+                return;
+            }
+            emit_const(FLOAT_VAL(value));
+            break;
+        }
+        default:
+        {
+            error("Unknown number type");
+            break;
+        }
+    }
 }
 
 static void expression()

@@ -31,5 +31,26 @@ void free_value_array(ValueArray* array)
 
 void print_value(Value value)
 {
-    printf("%f", value);
+    switch(value.type)
+    {
+        case VAL_FLOAT:
+        {
+            printf("%f", AS_FLOAT(value));
+            break;
+        }
+        case VAL_INT:
+        {
+#ifdef LONG64
+            printf("%ld", AS_INT(value));
+#else
+            printf("%lld", AS_INT(value));
+#endif
+            break;
+        }
+        default:
+        {
+            printf("unknown");
+            break;
+        }
+    }
 }
