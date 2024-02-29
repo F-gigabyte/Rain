@@ -552,6 +552,11 @@ static void binary()
             emit_inst(OP_DIV);
             break;
         }
+        case TOKEN_PERC:
+        {
+            emit_inst(OP_REM);
+            break;
+        }
         case TOKEN_AMP:
         {
             emit_inst(OP_BIT_AND);
@@ -581,6 +586,36 @@ static void binary()
         case TOKEN_GREATER_GREATER_GREATER:
         {
             emit_inst(OP_SHIFT_LOGIC_RIGHT);
+            break;
+        }
+        case TOKEN_BANG_EQL:
+        {
+            emit_insts(OP_EQL, OP_NOT);
+            break;
+        }
+        case TOKEN_EQL_EQL:
+        {
+            emit_inst(OP_EQL);
+            break;
+        }
+        case TOKEN_GREATER:
+        {
+            emit_inst(OP_GREATER);
+            break;
+        }
+        case TOKEN_GREATER_EQL:
+        {
+            emit_insts(OP_LESS, OP_NOT);
+            break;
+        }
+        case TOKEN_LESS:
+        {
+            emit_inst(OP_LESS);
+            break;
+        }
+        case TOKEN_LESS_EQL:
+        {
+            emit_insts(OP_GREATER, OP_NOT);
             break;
         }
         default:
@@ -735,18 +770,18 @@ ParseRule rules[] = {
     [TOKEN_PLUS]                    = {NULL,     binary, PREC_TERM},
     [TOKEN_STAR]                    = {NULL,     binary, PREC_FACTOR},
     [TOKEN_SLASH]                   = {NULL,     binary, PREC_TERM},
-    [TOKEN_PERC]                    = {NULL,     NULL,   PREC_NONE},
+    [TOKEN_PERC]                    = {NULL,     binary, PREC_TERM},
     [TOKEN_AMP]                     = {NULL,     binary, PREC_BIT_AND},
     [TOKEN_LINE]                    = {NULL,     binary, PREC_BIT_OR},
     [TOKEN_UP]                      = {NULL,     binary, PREC_BIT_OR},
     [TOKEN_BANG]                    = {unary,    NULL,   PREC_NONE},
-    [TOKEN_BANG_EQL]                = {NULL,     NULL,   PREC_NONE},
+    [TOKEN_BANG_EQL]                = {NULL,     binary, PREC_EQL},
     [TOKEN_EQL]                     = {NULL,     NULL,   PREC_NONE},
-    [TOKEN_EQL_EQL]                 = {NULL,     NULL,   PREC_NONE},
-    [TOKEN_GREATER]                 = {NULL,     NULL,   PREC_NONE},
-    [TOKEN_GREATER_EQL]             = {NULL,     NULL,   PREC_NONE},
-    [TOKEN_LESS]                    = {NULL,     NULL,   PREC_NONE},
-    [TOKEN_LESS_EQL]                = {NULL,     NULL,   PREC_NONE},
+    [TOKEN_EQL_EQL]                 = {NULL,     binary, PREC_EQL},
+    [TOKEN_GREATER]                 = {NULL,     binary, PREC_COMP},
+    [TOKEN_GREATER_EQL]             = {NULL,     binary, PREC_COMP},
+    [TOKEN_LESS]                    = {NULL,     binary, PREC_COMP},
+    [TOKEN_LESS_EQL]                = {NULL,     binary, PREC_COMP},
     [TOKEN_LESS_LESS]               = {NULL,     binary, PREC_SHIFT},
     [TOKEN_GREATER_GREATER]         = {NULL,     binary, PREC_SHIFT},
     [TOKEN_LESS_LESS_LESS]          = {NULL,     binary, PREC_SHIFT},

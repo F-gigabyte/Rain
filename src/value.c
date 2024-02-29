@@ -10,6 +10,37 @@ void init_value_array(ValueArray* array)
     array->size = 0;
 }
 
+bool values_eql(Value a, Value b)
+{
+    if(a.type != b.type)
+    {
+        return false;
+    }
+    switch(a.type)
+    {
+        case VAL_BOOL:
+        {
+            return AS_BOOL(a) == AS_BOOL(b);
+        }
+        case VAL_INT:
+        {
+            return AS_INT(a) == AS_INT(b);
+        }
+        case VAL_FLOAT:
+        {
+            return AS_FLOAT(a) == AS_FLOAT(b);
+        }
+        case VAL_NULL:
+        {
+            return true;
+        }
+        default:
+        {
+            return false;
+        }
+    }
+}
+
 void write_value_array(ValueArray* array, Value value)
 {
     if(array->capacity < array->size + 1)

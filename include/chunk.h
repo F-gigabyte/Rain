@@ -31,6 +31,9 @@ typedef enum
     OP_SHIFT_LEFT,
     OP_SHIFT_ARITH_RIGHT,
     OP_SHIFT_LOGIC_RIGHT,
+    OP_EQL,
+    OP_GREATER,
+    OP_LESS,
 } Opcode;
 
 typedef struct

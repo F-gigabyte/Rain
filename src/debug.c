@@ -138,6 +138,18 @@ size_t disassemble_inst(Chunk* chunk, size_t offset)
         {
             return simple_inst("OP_SHIFT_LOGIC_RIGHT", offset);
         }
+        case OP_EQL:
+        {
+            return simple_inst("OP_EQL", offset);
+        }
+        case OP_GREATER:
+        {
+            return simple_inst("OP_GREATER", offset);
+        }
+        case OP_LESS:
+        {
+            return simple_inst("OP_LESS", offset);
+        }
         default:
         {
             printf("Unknown opcode %d\n", inst);

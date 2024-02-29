@@ -423,6 +423,63 @@ static InterpretResult run()
                 }
                 break;
             }
+            case OP_EQL:
+            {
+                Value b = pop();
+                Value a = pop();
+                if(a.type == VAL_NULL || b.type == VAL_NULL || a.type == b.type)
+                {
+                    push(BOOL_VAL(values_eql(a, b)));
+                }
+                else
+                {
+                    runtime_error("Operands must be the same type");
+                    return INTERPRET_RUNTIME_ERROR;
+                }
+                break;
+            }
+            case OP_GREATER:
+            {
+                if(IS_INT(peek(0)) && IS_INT(peek(1)))
+                {
+                    int64_t b = AS_INT(pop());
+                    int64_t a = AS_INT(pop());
+                    push(BOOL_VAL(a > b));
+                }
+                else if(IS_FLOAT(peek(0)) && IS_FLOAT(peek(1)))
+                {
+                    double b = AS_FLOAT(pop());
+                    double a = AS_FLOAT(pop());
+                    push(BOOL_VAL(a > b));
+                }
+                else
+                {
+                    runtime_error("Operands must be the same type and a number");
+                    return INTERPRET_RUNTIME_ERROR;
+                }
+                break;
+            }
+            case OP_LESS:
+            {
+                if(IS_INT(peek(0)) && IS_INT(peek(1)))
+                {
+                    int64_t b = AS_INT(pop());
+                    int64_t a = AS_INT(pop());
+                    push(BOOL_VAL(a < b));
+                }
+                else if(IS_FLOAT(peek(0)) && IS_FLOAT(peek(1)))
+                {
+                    double b = AS_FLOAT(pop());
+                    double a = AS_FLOAT(pop());
+                    push(BOOL_VAL(a < b));
+                }
+                else
+                {
+                    runtime_error("Operands must be the same type and a number");
+                    return INTERPRET_RUNTIME_ERROR;
+                }
+                break;
+            }
         }
     }
 }
