@@ -32,6 +32,8 @@ typedef enum {
     TOKEN_LESS_EQL, // <=
     TOKEN_LESS_LESS, // <<
     TOKEN_GREATER_GREATER, // >>
+    TOKEN_LESS_LESS_LESS, // <<<
+    TOKEN_GREATER_GREATER_GREATER, // >>>
     TOKEN_MINUS_MINUS, // --
     TOKEN_PLUS_PLUS, // ++
     TOKEN_PLUS_EQL, // +=

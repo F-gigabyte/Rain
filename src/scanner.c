@@ -767,6 +767,10 @@ Token scan_token()
                     {
                         return make_token(TOKEN_GREATER_GREATER_EQL);
                     }
+                    else if(match('>'))
+                    {
+                        return make_token(TOKEN_GREATER_GREATER_GREATER);
+                    }
                     else
                     {
                         return make_token(TOKEN_GREATER_GREATER);
@@ -789,6 +793,10 @@ Token scan_token()
                     if(match('='))
                     {
                         return make_token(TOKEN_LESS_LESS_EQL);
+                    }
+                    else if(match('<'))
+                    {
+                        return make_token(TOKEN_LESS_LESS_LESS);
                     }
                     else
                     {

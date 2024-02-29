@@ -130,9 +130,13 @@ size_t disassemble_inst(Chunk* chunk, size_t offset)
         {
             return simple_inst("OP_SHIFT_LEFT", offset);
         }
-        case OP_SHIFT_RIGHT:
+        case OP_SHIFT_ARITH_RIGHT:
         {
-            return simple_inst("OP_SHIFT_RIGHT", offset);
+            return simple_inst("OP_SHIFT_ARITH_RIGHT", offset);
+        }
+        case OP_SHIFT_LOGIC_RIGHT:
+        {
+            return simple_inst("OP_SHIFT_LOGIC_RIGHT", offset);
         }
         default:
         {
