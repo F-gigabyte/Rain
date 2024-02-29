@@ -372,8 +372,11 @@ typedef enum {
     PREC_AND, // and
     PREC_EQL, // == !=
     PREC_COMP, // < > <= >=
+    PREC_SHIFT, // << >>
+    PREC_BIT_OR, // | ^
+    PREC_BIT_AND, // &
     PREC_TERM, // + -
-    PREC_FACTOR, // * /
+    PREC_FACTOR, // * / %
     PREC_UNARY, // - ! not
     PREC_CALL, // . ()
     PREC_PRIMARY,
@@ -549,6 +552,21 @@ static void binary()
             emit_inst(OP_DIV);
             break;
         }
+        case TOKEN_AMP:
+        {
+            emit_inst(OP_BIT_AND);
+            break;
+        }
+        case TOKEN_LINE:
+        {
+            emit_inst(OP_BIT_OR);
+            break;
+        }
+        case TOKEN_UP:
+        {
+            emit_inst(OP_BIT_XOR);
+            break;
+        }
         default:
         {
             return;
@@ -565,6 +583,16 @@ static void unary()
         case TOKEN_MINUS:
         {
             emit_inst(OP_NEGATE);
+            break;
+        }
+        case TOKEN_NOT:
+        {
+            emit_inst(OP_NOT);
+            break;
+        }
+        case TOKEN_BANG:
+        {
+            emit_inst(OP_BIT_NOT);
             break;
         }
         default:
@@ -647,6 +675,33 @@ static void number()
     }
 }
 
+static void literal()
+{
+    switch(parser.previous.type)
+    {
+        case TOKEN_FALSE:
+        {
+            emit_inst(OP_FALSE);
+            break;
+        }
+        case TOKEN_NULL:
+        {
+            emit_inst(OP_NULL);
+            break;
+        }
+        case TOKEN_TRUE:
+        {
+            emit_inst(OP_TRUE);
+            break;
+        }
+        default:
+        {
+            error("Unknown literal type");
+            break;
+        }
+    }
+}
+
 static void expression()
 {
     parse_precedence(PREC_ASSIGNMENT);
@@ -665,10 +720,10 @@ ParseRule rules[] = {
     [TOKEN_STAR]                = {NULL,     binary, PREC_FACTOR},
     [TOKEN_SLASH]               = {NULL,     binary, PREC_TERM},
     [TOKEN_PERC]                = {NULL,     NULL,   PREC_NONE},
-    [TOKEN_AMP]                 = {NULL,     NULL,   PREC_NONE},
-    [TOKEN_LINE]                = {NULL,     NULL,   PREC_NONE},
-    [TOKEN_UP]                  = {NULL,     NULL,   PREC_NONE},
-    [TOKEN_BANG]                = {NULL,     NULL,   PREC_NONE},
+    [TOKEN_AMP]                 = {NULL,     binary, PREC_BIT_AND},
+    [TOKEN_LINE]                = {NULL,     binary, PREC_BIT_OR},
+    [TOKEN_UP]                  = {NULL,     binary, PREC_BIT_OR},
+    [TOKEN_BANG]                = {unary,    NULL,   PREC_NONE},
     [TOKEN_BANG_EQL]            = {NULL,     NULL,   PREC_NONE},
     [TOKEN_EQL]                 = {NULL,     NULL,   PREC_NONE},
     [TOKEN_EQL_EQL]             = {NULL,     NULL,   PREC_NONE},
@@ -707,7 +762,7 @@ ParseRule rules[] = {
     [TOKEN_CLASS]               = {NULL,     NULL,   PREC_NONE},
     [TOKEN_CONST]               = {NULL,     NULL,   PREC_NONE},
     [TOKEN_ELSE]                = {NULL,     NULL,   PREC_NONE},
-    [TOKEN_FALSE]               = {NULL,     NULL,   PREC_NONE},
+    [TOKEN_FALSE]               = {literal,  NULL,   PREC_NONE},
     [TOKEN_FLOAT_CAST]          = {NULL,     NULL,   PREC_NONE},
     [TOKEN_FOR]                 = {NULL,     NULL,   PREC_NONE},
     [TOKEN_FUNC]                = {NULL,     NULL,   PREC_NONE},
@@ -715,8 +770,8 @@ ParseRule rules[] = {
     [TOKEN_IN]                  = {NULL,     NULL,   PREC_NONE},
     [TOKEN_INT_CAST]            = {NULL,     NULL,   PREC_NONE},
     [TOKEN_IMPORT]              = {NULL,     NULL,   PREC_NONE},
-    [TOKEN_NOT]                 = {NULL,     NULL,   PREC_NONE},
-    [TOKEN_NULL]                = {NULL,     NULL,   PREC_NONE},
+    [TOKEN_NOT]                 = {unary,    NULL,   PREC_NONE},
+    [TOKEN_NULL]                = {literal,  NULL,   PREC_NONE},
     [TOKEN_OR]                  = {NULL,     NULL,   PREC_NONE},
     [TOKEN_OVERRIDE]            = {NULL,     NULL,   PREC_NONE},
     [TOKEN_PRINT]               = {NULL,     NULL,   PREC_NONE},
@@ -727,7 +782,7 @@ ParseRule rules[] = {
     [TOKEN_SUPER]               = {NULL,     NULL,   PREC_NONE},
     [TOKEN_STR_CAST]            = {NULL,     NULL,   PREC_NONE},
     [TOKEN_THIS]                = {NULL,     NULL,   PREC_NONE},
-    [TOKEN_TRUE]                = {NULL,     NULL,   PREC_NONE},
+    [TOKEN_TRUE]                = {literal,  NULL,   PREC_NONE},
     [TOKEN_VAR]                 = {NULL,     NULL,   PREC_NONE},
     [TOKEN_VIRTUAL]             = {NULL,     NULL,   PREC_NONE},
     [TOKEN_WHILE]               = {NULL,     NULL,   PREC_NONE},

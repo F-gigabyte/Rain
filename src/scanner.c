@@ -745,11 +745,11 @@ Token scan_token()
             }
             case ('^'):
             {
-                return make_token(match('=') ? TOKEN_UP : TOKEN_UP_EQL);
+                return make_token(match('=') ? TOKEN_UP_EQL : TOKEN_UP);
             }
             case ('!'):
             {
-                return make_token(match('=') ? TOKEN_BANG : TOKEN_BANG_EQL);
+                return make_token(match('=') ? TOKEN_BANG_EQL : TOKEN_BANG);
             }
             case ('='):
             {

@@ -99,6 +99,21 @@ static InterpretResult run()
                 push(constant);
                 break;
             }
+            case OP_NULL:
+            {
+                push(NULL_VAL);
+                break;
+            }
+            case OP_TRUE:
+            {
+                push(BOOL_VAL(true));
+                break;
+            }
+            case OP_FALSE:
+            {
+                push(BOOL_VAL(false));
+                break;
+            }
             case OP_NEGATE:
             {
                 if(IS_INT(peek(0)))
@@ -249,6 +264,97 @@ static InterpretResult run()
                 else
                 {
                     runtime_error("Operands must be integers or floats");
+                    return INTERPRET_RUNTIME_ERROR;
+                }
+                break;
+            }
+            case OP_REM:
+            {
+                if(IS_INT(peek(0)) && IS_INT(peek(1)))
+                {
+                    int64_t b = AS_INT(pop());
+                    int64_t a = AS_INT(pop());
+                    if(b == 0)
+                    {
+                        runtime_error("Divide by 0 error");
+                        return INTERPRET_RUNTIME_ERROR;
+                    }
+                    push(INT_VAL(a % b));
+                }
+                else
+                {
+                    runtime_error("Operands must be integers");
+                    return INTERPRET_RUNTIME_ERROR;
+                }
+                break;
+            }
+            case OP_NOT:
+            {
+                if(IS_BOOL(peek(0)))
+                {
+                    push(BOOL_VAL(!AS_BOOL(pop())));
+                }
+                else
+                {
+                    runtime_error("Operand must be a boolean");
+                    return INTERPRET_RUNTIME_ERROR;
+                }
+                break;
+            }
+            case OP_BIT_NOT:
+            {
+                if(IS_INT(peek(0)))
+                {
+                    push(INT_VAL(~AS_INT(pop())));
+                }
+                else
+                {
+                    runtime_error("Operand must be an integer");
+                    return INTERPRET_RUNTIME_ERROR;
+                }
+                break;
+            }
+            case OP_BIT_AND:
+            {
+                if(IS_INT(peek(0)) && IS_INT(peek(1)))
+                {
+                    int64_t b = AS_INT(pop());
+                    int64_t a = AS_INT(pop());
+                    push(INT_VAL(a & b));
+                }
+                else
+                {
+                    runtime_error("Operands must be integers");
+                    return INTERPRET_RUNTIME_ERROR;
+                }
+                break;
+            }
+            case OP_BIT_OR:
+            {
+                if(IS_INT(peek(0)) && IS_INT(peek(1)))
+                {
+                    int64_t b = AS_INT(pop());
+                    int64_t a = AS_INT(pop());
+                    push(INT_VAL(a | b));
+                }
+                else
+                {
+                    runtime_error("Operands must be integers");
+                    return INTERPRET_RUNTIME_ERROR;
+                }
+                break;
+            }
+            case OP_BIT_XOR:
+            {
+                if(IS_INT(peek(0)) && IS_INT(peek(1)))
+                {
+                    int64_t b = AS_INT(pop());
+                    int64_t a = AS_INT(pop());
+                    push(INT_VAL(a ^ b));
+                }
+                else
+                {
+                    runtime_error("Operands must be integers");
                     return INTERPRET_RUNTIME_ERROR;
                 }
                 break;

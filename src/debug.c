@@ -70,6 +70,18 @@ size_t disassemble_inst(Chunk* chunk, size_t offset)
         {
             return const_inst("OP_CONST_LONG", chunk, 8, offset);
         }
+        case OP_NULL:
+        {
+            return simple_inst("OP_NULL", offset);
+        }
+        case OP_TRUE:
+        {
+            return simple_inst("OP_TRUE", offset);
+        }
+        case OP_FALSE:
+        {
+            return simple_inst("OP_FALSE", offset);
+        }
         case OP_NEGATE:
         {
             return simple_inst("OP_NEGATE", offset);
@@ -89,6 +101,30 @@ size_t disassemble_inst(Chunk* chunk, size_t offset)
         case OP_DIV:
         {
             return simple_inst("OP_DIV", offset);
+        }
+        case OP_NOT:
+        {
+            return simple_inst("OP_NOT", offset);
+        }
+        case OP_REM:
+        {
+            return simple_inst("OP_REM", offset);
+        }
+        case OP_BIT_NOT:
+        {
+            return simple_inst("OP_BIT_NOT", offset);
+        }
+        case OP_BIT_AND:
+        {
+            return simple_inst("OP_BIT_AND", offset);
+        }
+        case OP_BIT_OR:
+        {
+            return simple_inst("OP_BIT_OR", offset);
+        }
+        case OP_BIT_XOR:
+        {
+            return simple_inst("OP_BIT_XOR", offset);
         }
         default:
         {

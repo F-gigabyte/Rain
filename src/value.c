@@ -47,6 +47,16 @@ void print_value(Value value)
 #endif
             break;
         }
+        case VAL_BOOL:
+        {
+            printf(AS_BOOL(value) ? "true" : "false");
+            break;
+        }
+        case VAL_NULL:
+        {
+            printf("null");
+            break;
+        }
         default:
         {
             printf("unknown");
