@@ -590,9 +590,17 @@ static InterpretResult run()
                     case VAL_INT:
                     {
                         int64_t num = AS_INT(val);
+#ifdef LONG64
                         size_t len = (size_t)snprintf(NULL, 0, "%li", num);
+#else
+                        size_t len = (size_t)snprintf(NULL, 0, "%lli", num);
+#endif
                         char* chars = ALLOCATE(char, len + 1);
+#ifdef LONG64
                         snprintf(chars, len + 1, "%li", num);
+#else
+                        size_t len = (size_t)snprintf(NULL, 0, "%lli", num);
+#endif
                         push(OBJ_VAL((Obj*)take_str(chars, len)));
                         break;
                     }
