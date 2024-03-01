@@ -801,7 +801,7 @@ static void string()
         {
             case TOKEN_STR_BODY:
             {
-                emit_const(OBJ_VAL((Obj*)copy_str(parser.previous.start, parser.previous.len)));
+                emit_const(OBJ_VAL((Obj*)make_str(parser.previous.start, parser.previous.len)));
                 if(!first)
                 {
                     emit_inst(OP_ADD);

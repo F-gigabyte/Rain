@@ -7,6 +7,8 @@
 
 #define ALLOCATE_OBJ(type, obj_type) \
     (type*)allocate_obj(sizeof(type), obj_type)
+#define ALLOCATE_STR(len) \
+    (ObjString*)allocate_obj(sizeof(ObjString) + len, OBJ_STRING)
 
 static Obj* allocate_obj(size_t size, ObjType type)
 {
@@ -17,20 +19,14 @@ static Obj* allocate_obj(size_t size, ObjType type)
     return obj;
 }
 
-static ObjString* allocate_str(char* chars, size_t len)
+ObjString* allocate_str(size_t len)
 {
-    ObjString* str = ALLOCATE_OBJ(ObjString, OBJ_STRING);
+    ObjString* str = ALLOCATE_STR(len + 1);
     str->len = len;
-    str->chars = chars;
     return str;
 }
 
-ObjString* take_str(char* chars, size_t len)
-{
-    return allocate_str(chars, len);
-}
-
-ObjString* copy_str(const char* chars, size_t len)
+ObjString* make_str(const char* chars, size_t len)
 {
     size_t res_len = 0;
     size_t i = 0;
@@ -85,7 +81,7 @@ ObjString* copy_str(const char* chars, size_t len)
     {
         res_len++;
     }
-    char* heap_chars = ALLOCATE(char, res_len + 1);
+    ObjString* res_str = allocate_str(res_len);
     size_t pos = 0;
     for(i = 0; (i < len - 1) && len && pos < res_len; i++,pos++)
     {
@@ -98,39 +94,39 @@ ObjString* copy_str(const char* chars, size_t len)
                 {
                     case '\'':
                     {
-                        heap_chars[pos] = '\'';
+                        res_str->chars[pos] = '\'';
                         break;
                     }
                     case '\"':
                     {
-                        heap_chars[pos] = '\"';
+                        res_str->chars[pos] = '\"';
                         break;
                     }
                     case 't':
                     {
-                        heap_chars[pos] = '\t';
+                        res_str->chars[pos] = '\t';
                         break;
                     }
                     case 'n':
                     {
-                        heap_chars[pos] = '\n';
+                        res_str->chars[pos] = '\n';
                         break;
                     }
                     case 'r':
                     {
-                        heap_chars[pos] = '\r';
+                        res_str->chars[pos] = '\r';
                         break;
                     }
                     case '\\':
                     {
-                        heap_chars[pos] = '\\';
+                        res_str->chars[pos] = '\\';
                         break;
                     }
                     default:
                     {
-                        heap_chars[pos] = '\\';
+                        res_str->chars[pos] = '\\';
                         pos++;
-                        heap_chars[pos] = chars[i];
+                        res_str->chars[pos] = chars[i];
                         break;
                     }
                 }
@@ -141,29 +137,29 @@ ObjString* copy_str(const char* chars, size_t len)
                 i++;
                 if(chars[i] == '{')
                 {
-                    heap_chars[pos] = '{';
+                    res_str->chars[pos] = '{';
                 }
                 else
                 {
-                    heap_chars[pos] = '{';
+                    res_str->chars[pos] = '{';
                     pos++;
-                    heap_chars[pos] = chars[i];
+                    res_str->chars[pos] = chars[i];
                 }
                 break;
             }
             default:
             {
-                heap_chars[pos] = chars[i];
+                res_str->chars[pos] = chars[i];
                 break;
             }
         }
     }
     if(i < len)
     {
-        heap_chars[pos] = chars[i];
+        res_str->chars[pos] = chars[i];
     }
-    heap_chars[res_len] = 0;
-    return allocate_str(heap_chars, res_len);
+    res_str->chars[res_len] = 0;
+    return res_str;
 }
 
 void print_obj(Value value)

@@ -25,7 +25,6 @@ static void free_obj(Obj* obj)
         case OBJ_STRING:
         {
             ObjString* str = (ObjString*)obj;
-            FREE_ARRAY(char, str->chars, str->len + 1);
             FREE(ObjString, obj);
             break;
         }

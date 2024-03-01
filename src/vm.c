@@ -49,11 +49,10 @@ static void concatenate()
     ObjString* b = AS_STRING(pop());
     ObjString* a = AS_STRING(pop());
     size_t len = a->len + b->len;
-    char* chars = ALLOCATE(char, len + 1);
-    memcpy(chars, a->chars, a->len);
-    memcpy(chars + a->len, b->chars, b->len);
-    chars[len] = 0;
-    ObjString* res = take_str(chars, len);
+    ObjString* res = allocate_str(len);
+    memcpy(res->chars, a->chars, a->len);
+    memcpy(res->chars + a->len, b->chars, b->len);
+    res->chars[len] = 0;
     push(OBJ_VAL((Obj*)res));
 }
 
@@ -584,7 +583,7 @@ static InterpretResult run()
                 {
                     case VAL_BOOL:
                     {
-                        push(OBJ_VAL((Obj*)(AS_BOOL(val) ? copy_str("true", 4) : copy_str("false", 5))));
+                        push(OBJ_VAL((Obj*)(AS_BOOL(val) ? make_str("true", 4) : make_str("false", 5))));
                         break;
                     }
                     case VAL_INT:
@@ -595,27 +594,27 @@ static InterpretResult run()
 #else
                         size_t len = (size_t)snprintf(NULL, 0, "%lli", num);
 #endif
-                        char* chars = ALLOCATE(char, len + 1);
+                        ObjString* res = allocate_str(len);
 #ifdef LONG64
-                        snprintf(chars, len + 1, "%li", num);
+                        snprintf(res->chars, len + 1, "%li", num);
 #else
-                        size_t len = (size_t)snprintf(NULL, 0, "%lli", num);
+                        size_t len = (size_t)snprintf(res->chars, len + 1, "%lli", num);
 #endif
-                        push(OBJ_VAL((Obj*)take_str(chars, len)));
+                        push(OBJ_VAL((Obj*)res));
                         break;
                     }
                     case VAL_NULL:
                     {
-                        push(OBJ_VAL((Obj*)copy_str("null", 4)));
+                        push(OBJ_VAL((Obj*)make_str("null", 4)));
                         break;
                     }
                     case VAL_FLOAT:
                     {
                         double num = AS_FLOAT(val);
                         size_t len = (size_t)snprintf(NULL, 0, "%f", num);
-                        char* chars = ALLOCATE(char, len + 1);
-                        snprintf(chars, len + 1, "%f", num);
-                        push(OBJ_VAL((Obj*)take_str(chars, len)));
+                        ObjString* res = allocate_str(len);
+                        snprintf(res->chars, len + 1, "%f", num);
+                        push(OBJ_VAL((Obj*)res));
                         break;
                     }
                     case VAL_OBJ:
