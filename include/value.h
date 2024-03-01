@@ -3,11 +3,15 @@
 
 #include <common.h>
 
+typedef struct Obj Obj;
+typedef struct ObjString ObjString;
+
 typedef enum {
     VAL_BOOL,
     VAL_NULL,
     VAL_INT,
     VAL_FLOAT,
+    VAL_OBJ,
 } ValueType;
 
 typedef struct {
@@ -16,6 +20,7 @@ typedef struct {
         bool bool_data;
         uint64_t int_data;
         double float_data;
+        Obj* obj_data;
     } as;
 } Value;
 
@@ -31,11 +36,13 @@ bool values_eql(Value a, Value b);
 #define BOOL_VAL(value)  ((Value){VAL_BOOL, {.bool_data = value}})
 #define INT_VAL(value)   ((Value){VAL_INT,  {.int_data = value}})
 #define FLOAT_VAL(value) ((Value){VAL_FLOAT, {.float_data = value}})
+#define OBJ_VAL(value)   ((Value){VAL_OBJ, {.obj_data = value}})
 #define NULL_VAL         ((Value){VAL_NULL, {.int_data = 0}}) 
 
 #define AS_BOOL(value)   ((value).as.bool_data)
 #define AS_INT(value)    ((value).as.int_data)
 #define AS_FLOAT(value)  ((value).as.float_data)
+#define AS_OBJ(value)    ((value).as.obj_data)
 
 #define IS_BOOL(value)   ((value).type == VAL_BOOL)
 #define IS_INT(value)    ((value).type == VAL_INT)
@@ -44,6 +51,8 @@ inline bool IS_NUMBER(Value value)
 {
     return IS_INT(value) || IS_FLOAT(value);
 }
+
+#define IS_OBJ(value)    ((value).type == VAL_OBJ)
 
 #define IS_NULL(value)   ((value).type == VAL_NULL)
 

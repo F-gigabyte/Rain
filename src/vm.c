@@ -4,6 +4,9 @@
 #include <compiler.h>
 #include <stdarg.h>
 #include <lines.h>
+#include <object.h>
+#include <rain_memory.h>
+#include <string.h>
 
 #ifdef DEBUG_TRACE_EXECUTION
 #include <debug.h>
@@ -33,11 +36,25 @@ static void runtime_error(const char* format, ...)
 void init_vm()
 {
     reset_stack();
+    vm.objects = NULL;
 }
 
 static Value peek(int64_t distance)
 {
     return vm.stack_top[-1 - distance];
+}
+
+static void concatenate()
+{
+    ObjString* b = AS_STRING(pop());
+    ObjString* a = AS_STRING(pop());
+    size_t len = a->len + b->len;
+    char* chars = ALLOCATE(char, len + 1);
+    memcpy(chars, a->chars, a->len);
+    memcpy(chars + a->len, b->chars, b->len);
+    chars[len] = 0;
+    ObjString* res = take_str(chars, len);
+    push(OBJ_VAL((Obj*)res));
 }
 
 #define READ_INST() (*(vm.ip++))
@@ -133,7 +150,11 @@ static InterpretResult run()
             }
             case OP_ADD:
             {
-                if(IS_INT(peek(0)) && IS_INT(peek(1)))
+                if(IS_STRING(peek(0)) && IS_STRING(peek(1)))
+                {
+                    concatenate();
+                }
+                else if(IS_INT(peek(0)) && IS_INT(peek(1)))
                 {
                     int64_t b = AS_INT(pop());
                     int64_t a = AS_INT(pop());
@@ -480,6 +501,183 @@ static InterpretResult run()
                 }
                 break;
             }
+            case OP_CAST_BOOL:
+            {
+                Value val = pop();
+                switch(val.type)
+                {
+                    case VAL_BOOL:
+                    {
+                        push(val);
+                        break;
+                    }
+                    case VAL_NULL:
+                    {
+                        push(BOOL_VAL(false));
+                        break;
+                    }
+                    case VAL_INT:
+                    {
+                        push(BOOL_VAL(AS_INT(val) != 0));
+                        break;
+                    }
+                    case VAL_FLOAT:
+                    {
+                        push(BOOL_VAL(AS_FLOAT(val) != 0.0));
+                        break;
+                    }
+                    case VAL_OBJ:
+                    {
+                        push(BOOL_VAL(true));
+                        break;
+                    }
+                    default:
+                    {
+                        runtime_error("Unknown type");
+                        return INTERPRET_RUNTIME_ERROR;
+                    }
+                }
+                break;
+            }
+            case OP_CAST_INT:
+            {
+                Value val = pop();
+                switch(val.type)
+                {
+                    case VAL_BOOL:
+                    {
+                        push(INT_VAL(AS_BOOL(val) ? 1 : 0));
+                        break;
+                    }
+                    case VAL_NULL:
+                    {
+                        push(INT_VAL(0));
+                        break;
+                    }
+                    case VAL_INT:
+                    {
+                        push(val);
+                        break;
+                    }
+                    case VAL_FLOAT:
+                    {
+                        push(INT_VAL((int64_t)AS_FLOAT(val)));
+                        break;
+                    }
+                    case VAL_OBJ:
+                    {
+                        runtime_error("Unsupported conversion of object to int");
+                        return INTERPRET_RUNTIME_ERROR;
+                    }
+                    default:
+                    {
+                        runtime_error("Unknown type");
+                        return INTERPRET_RUNTIME_ERROR;
+                    }
+                }
+                break;
+            }
+            case OP_CAST_STR:
+            {
+                Value val = pop();
+                switch(val.type)
+                {
+                    case VAL_BOOL:
+                    {
+                        push(OBJ_VAL((Obj*)(AS_BOOL(val) ? copy_str("true", 4) : copy_str("false", 5))));
+                        break;
+                    }
+                    case VAL_INT:
+                    {
+                        int64_t num = AS_INT(val);
+                        size_t len = (size_t)snprintf(NULL, 0, "%li", num);
+                        char* chars = ALLOCATE(char, len + 1);
+                        snprintf(chars, len + 1, "%li", num);
+                        push(OBJ_VAL((Obj*)take_str(chars, len)));
+                        break;
+                    }
+                    case VAL_NULL:
+                    {
+                        push(OBJ_VAL((Obj*)copy_str("null", 4)));
+                        break;
+                    }
+                    case VAL_FLOAT:
+                    {
+                        double num = AS_FLOAT(val);
+                        size_t len = (size_t)snprintf(NULL, 0, "%f", num);
+                        char* chars = ALLOCATE(char, len + 1);
+                        snprintf(chars, len + 1, "%f", num);
+                        push(OBJ_VAL((Obj*)take_str(chars, len)));
+                        break;
+                    }
+                    case VAL_OBJ:
+                    {
+                        switch(OBJ_TYPE(val))
+                        {
+                            case OBJ_STRING:
+                            {
+                                push(val);
+                                break;
+                            }
+                            default:
+                            {
+                                runtime_error("Unsupported conversion of object to string");
+                                return INTERPRET_RUNTIME_ERROR;
+                            }
+                        }
+                        break;
+                    }
+                    default:
+                    {
+                        runtime_error("Unknown type");
+                        return INTERPRET_RUNTIME_ERROR;
+                    }
+                }
+                break;
+            }
+            case OP_CAST_FLOAT:
+            {
+                Value val = pop();
+                switch(val.type)
+                {
+                    case VAL_BOOL:
+                    {
+                        push(FLOAT_VAL(AS_BOOL(val) ? 1.0 : 0.0));
+                        break;
+                    }
+                    case VAL_NULL:
+                    {
+                        push(FLOAT_VAL(0.0));
+                        break;
+                    }
+                    case VAL_INT:
+                    {
+                        push(FLOAT_VAL((double)AS_INT(val)));
+                        break;
+                    }
+                    case VAL_FLOAT:
+                    {
+                        push(val);
+                        break;
+                    }
+                    case VAL_OBJ:
+                    {
+                        runtime_error("Unsupported conversion of object to float");
+                        return INTERPRET_RUNTIME_ERROR;
+                    }
+                    default:
+                    {
+                        runtime_error("Unknown type");
+                        return INTERPRET_RUNTIME_ERROR;
+                    }
+                }
+                break;
+            }
+            default:
+            {
+                runtime_error("Unknown instruction %u", inst);
+                return INTERPRET_RUNTIME_ERROR;
+            }
         }
     }
 }
@@ -519,5 +717,5 @@ Value pop()
 
 void free_vm()
 {
-
+    free_objs();
 }

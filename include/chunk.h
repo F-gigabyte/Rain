@@ -34,6 +34,10 @@ typedef enum
     OP_EQL,
     OP_GREATER,
     OP_LESS,
+    OP_CAST_INT,
+    OP_CAST_FLOAT,
+    OP_CAST_STR,
+    OP_CAST_BOOL,
 } Opcode;
 
 typedef struct

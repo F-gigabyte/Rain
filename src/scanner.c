@@ -259,7 +259,8 @@ static TokenType identifier_type()
         }
         case ('b'):
         {
-            check_keyword(1, 3, "ool", TOKEN_BOOL_CAST);
+            return check_keyword(1, 3, "ool", TOKEN_BOOL_CAST);
+            break;
         }
         case ('c'):
         {

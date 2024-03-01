@@ -1,7 +1,8 @@
 #include <stdio.h>
-
 #include <value.h>
 #include <rain_memory.h>
+#include <object.h>
+#include <string.h>
 
 void init_value_array(ValueArray* array)
 {
@@ -33,6 +34,12 @@ bool values_eql(Value a, Value b)
         case VAL_NULL:
         {
             return true;
+        }
+        case VAL_OBJ:
+        {
+            ObjString* str_a = AS_STRING(a);
+            ObjString* str_b = AS_STRING(b);
+            return str_a->len == str_b->len && memcmp(str_a->chars, str_b->chars, str_a->len) == 0;
         }
         default:
         {
@@ -86,6 +93,11 @@ void print_value(Value value)
         case VAL_NULL:
         {
             printf("null");
+            break;
+        }
+        case VAL_OBJ:
+        {
+            print_obj(value);
             break;
         }
         default:

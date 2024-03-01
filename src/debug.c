@@ -150,6 +150,22 @@ size_t disassemble_inst(Chunk* chunk, size_t offset)
         {
             return simple_inst("OP_LESS", offset);
         }
+        case OP_CAST_BOOL:
+        {
+            return simple_inst("OP_CAST_BOOL", offset);
+        }
+        case OP_CAST_INT:
+        {
+            return simple_inst("OP_CAST_INT", offset);
+        }
+        case OP_CAST_STR:
+        {
+            return simple_inst("OP_CAST_STR", offset);
+        }
+        case OP_CAST_FLOAT:
+        {
+            return simple_inst("OP_CAST_FLOAT", offset);
+        }
         default:
         {
             printf("Unknown opcode %d\n", inst);

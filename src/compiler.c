@@ -4,6 +4,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <errno.h>
+#include <object.h>
 
 #ifdef DEBUG_PRINT_CODE
 #include <debug.h>
@@ -513,7 +514,7 @@ static void parse_precedence(Precedence precedence)
     ParseFn prefix_rule = get_rule(parser.previous.type)->prefix;
     if(prefix_rule == NULL)
     {
-        error("Epected expression");
+        error("Expected expression");
         return;
     }
     prefix_rule();
@@ -753,6 +754,83 @@ static void literal()
     }
 }
 
+static void cast()
+{
+    TokenType type = parser.previous.type;
+    consume(TOKEN_LEFT_PAREN, "Expect '(' after cast");
+    expression();
+    consume(TOKEN_RIGHT_PAREN, "Expect ')' after expression");
+    switch(type)
+    {
+        case TOKEN_INT_CAST:
+        {
+            emit_inst(OP_CAST_INT);
+            break;
+        }
+        case TOKEN_FLOAT_CAST:
+        {
+            emit_inst(OP_CAST_FLOAT);
+            break;
+        }
+        case TOKEN_STR_CAST:
+        {
+            emit_inst(OP_CAST_STR);
+            break;
+        }
+        case TOKEN_BOOL_CAST:
+        {
+            emit_inst(OP_CAST_BOOL);
+            break;
+        }
+        default:
+        {
+            error("Unknown cast type");
+            break;
+        }
+    }
+}
+
+// TOKEN_STR_START ((TOKEN_INTERP_START expr TOKEN_INTERP_END) | TOKEN_STR_BODY)* TOKEN_STR_END
+static void string()
+{
+    advance();
+    bool first = true;
+    while(parser.previous.type != TOKEN_STR_END && parser.previous.type != TOKEN_EOF)
+    {
+        switch(parser.previous.type)
+        {
+            case TOKEN_STR_BODY:
+            {
+                emit_const(OBJ_VAL((Obj*)copy_str(parser.previous.start, parser.previous.len)));
+                if(!first)
+                {
+                    emit_inst(OP_ADD);
+                }
+                first = false;
+                break;
+            }
+            case TOKEN_INTERP_START:
+            {
+                expression();
+                consume(TOKEN_INTERP_END, "Expect '}' after string interpolation");
+                emit_inst(OP_CAST_STR);
+                if(!first)
+                {
+                    emit_inst(OP_ADD);
+                }
+                first = false;
+                break;
+            }
+            default:
+            {
+                error("Unknown token in string");
+                break;
+            }
+        }
+        advance();
+    }
+}
+
 static void expression()
 {
     parse_precedence(PREC_ASSIGNMENT);
@@ -799,7 +877,7 @@ ParseRule rules[] = {
     [TOKEN_GREATER_GREATER_EQL]     = {NULL,     NULL,   PREC_NONE},
     [TOKEN_LESS_LESS_EQL]           = {NULL,     NULL,   PREC_NONE},
     [TOKEN_IDENT]                   = {NULL,     NULL,   PREC_NONE},
-    [TOKEN_STR_START]               = {NULL,     NULL,   PREC_NONE},
+    [TOKEN_STR_START]               = {string,   NULL,   PREC_NONE},
     [TOKEN_STR_BODY]                = {NULL,     NULL,   PREC_NONE},
     [TOKEN_STR_END]                 = {NULL,     NULL,   PREC_NONE},
     [TOKEN_INTERP_START]            = {NULL,     NULL,   PREC_NONE},
@@ -811,17 +889,17 @@ ParseRule rules[] = {
     [TOKEN_FLOAT]                   = {number,   NULL,   PREC_NONE},
     [TOKEN_AND]                     = {NULL,     NULL,   PREC_NONE},
     [TOKEN_ARRAY]                   = {NULL,     NULL,   PREC_NONE},
-    [TOKEN_BOOL_CAST]               = {NULL,     NULL,   PREC_NONE},
+    [TOKEN_BOOL_CAST]               = {cast,     NULL,   PREC_NONE},
     [TOKEN_CLASS]                   = {NULL,     NULL,   PREC_NONE},
     [TOKEN_CONST]                   = {NULL,     NULL,   PREC_NONE},
     [TOKEN_ELSE]                    = {NULL,     NULL,   PREC_NONE},
     [TOKEN_FALSE]                   = {literal,  NULL,   PREC_NONE},
-    [TOKEN_FLOAT_CAST]              = {NULL,     NULL,   PREC_NONE},
+    [TOKEN_FLOAT_CAST]              = {cast,     NULL,   PREC_NONE},
     [TOKEN_FOR]                     = {NULL,     NULL,   PREC_NONE},
     [TOKEN_FUNC]                    = {NULL,     NULL,   PREC_NONE},
     [TOKEN_IF]                      = {NULL,     NULL,   PREC_NONE},
     [TOKEN_IN]                      = {NULL,     NULL,   PREC_NONE},
-    [TOKEN_INT_CAST]                = {NULL,     NULL,   PREC_NONE},
+    [TOKEN_INT_CAST]                = {cast,     NULL,   PREC_NONE},
     [TOKEN_IMPORT]                  = {NULL,     NULL,   PREC_NONE},
     [TOKEN_NOT]                     = {unary,    NULL,   PREC_NONE},
     [TOKEN_NULL]                    = {literal,  NULL,   PREC_NONE},
@@ -833,7 +911,7 @@ ParseRule rules[] = {
     [TOKEN_PUB]                     = {NULL,     NULL,   PREC_NONE},
     [TOKEN_RET]                     = {NULL,     NULL,   PREC_NONE},
     [TOKEN_SUPER]                   = {NULL,     NULL,   PREC_NONE},
-    [TOKEN_STR_CAST]                = {NULL,     NULL,   PREC_NONE},
+    [TOKEN_STR_CAST]                = {cast,     NULL,   PREC_NONE},
     [TOKEN_THIS]                    = {NULL,     NULL,   PREC_NONE},
     [TOKEN_TRUE]                    = {literal,  NULL,   PREC_NONE},
     [TOKEN_VAR]                     = {NULL,     NULL,   PREC_NONE},
