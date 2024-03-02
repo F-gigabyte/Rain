@@ -10,6 +10,17 @@
 #define ALLOCATE_STR(len) \
     (ObjString*)allocate_obj(sizeof(ObjString) + len, OBJ_STRING)
 
+void hash_str(ObjString* str)
+{
+    uint32_t hash = 2166136261u;
+    for(size_t i = 0; i < str->len; i++)
+    {
+        hash ^= (uint8_t)str->chars[i];
+        hash *= 16777619;
+    }
+    str->hash = hash;
+}
+
 static Obj* allocate_obj(size_t size, ObjType type)
 {
     Obj* obj = (Obj*)reallocate(NULL, 0, size);
@@ -23,6 +34,7 @@ ObjString* allocate_str(size_t len)
 {
     ObjString* str = ALLOCATE_STR(len + 1);
     str->len = len;
+    str->hash = 0;
     return str;
 }
 
@@ -159,6 +171,7 @@ ObjString* make_str(const char* chars, size_t len)
         res_str->chars[pos] = chars[i];
     }
     res_str->chars[res_len] = 0;
+    hash_str(res_str);
     return res_str;
 }
 

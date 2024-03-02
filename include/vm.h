@@ -3,6 +3,7 @@
 
 #include <chunk.h>
 #include <value.h>
+#include <hash_table.h>
 
 #define STACK_MAX (4096 / sizeof(Value))
 
@@ -11,6 +12,7 @@ typedef struct {
     inst_type* ip;
     Value stack[STACK_MAX];
     Value* stack_top;
+    HashTable strings;
     Obj* objects;
 } VM;
 

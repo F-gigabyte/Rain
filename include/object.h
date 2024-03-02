@@ -22,6 +22,7 @@ struct Obj {
 struct ObjString {
     Obj obj;
     size_t len;
+    uint32_t hash;
     char chars[];
 };
 
@@ -31,6 +32,7 @@ static inline bool is_obj_type(Value value, ObjType type)
 }
 
 ObjString* allocate_str(size_t len);
+void hash_str(ObjString* str);
 ObjString* make_str(const char* chars, size_t len);
 void print_obj(Value value);
 

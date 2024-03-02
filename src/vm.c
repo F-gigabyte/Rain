@@ -37,6 +37,7 @@ void init_vm()
 {
     reset_stack();
     vm.objects = NULL;
+    init_hash_table(&vm.strings);
 }
 
 static Value peek(int64_t distance)
@@ -48,11 +49,10 @@ static void concatenate()
 {
     ObjString* b = AS_STRING(pop());
     ObjString* a = AS_STRING(pop());
-    size_t len = a->len + b->len;
-    ObjString* res = allocate_str(len);
+    ObjString* res = allocate_str(a->len + b->len);
     memcpy(res->chars, a->chars, a->len);
     memcpy(res->chars + a->len, b->chars, b->len);
-    res->chars[len] = 0;
+    hash_str(res);
     push(OBJ_VAL((Obj*)res));
 }
 
@@ -600,6 +600,7 @@ static InterpretResult run()
 #else
                         size_t len = (size_t)snprintf(res->chars, len + 1, "%lli", num);
 #endif
+                        hash_str(res);
                         push(OBJ_VAL((Obj*)res));
                         break;
                     }
@@ -614,6 +615,7 @@ static InterpretResult run()
                         size_t len = (size_t)snprintf(NULL, 0, "%f", num);
                         ObjString* res = allocate_str(len);
                         snprintf(res->chars, len + 1, "%f", num);
+                        hash_str(res);
                         push(OBJ_VAL((Obj*)res));
                         break;
                     }
@@ -724,5 +726,6 @@ Value pop()
 
 void free_vm()
 {
+    free_hash_table(&vm.strings);
     free_objs();
 }
