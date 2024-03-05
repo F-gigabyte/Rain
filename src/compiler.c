@@ -5,15 +5,10 @@
 #include <stdlib.h>
 #include <errno.h>
 #include <object.h>
+#include <convert.h>
 
 #ifdef DEBUG_PRINT_CODE
 #include <debug.h>
-#endif
-
-#ifdef LONG64
-#define INT_CAST(str, base) strtol((str), NULL, (base))
-#else
-#define INT_CAST(str, base) strtoll((str), NULL, (base))
 #endif
 
 #ifdef DEBUG_TOKEN_TYPES
@@ -666,8 +661,8 @@ static void number()
     {
         case TOKEN_INT:
         {
-            int64_t value = INT_CAST(parser.previous.start, 10);
-            if(errno == ERANGE)
+            int64_t value = 0;
+            if(!str_dec_to_int(&value, parser.previous.start, parser.previous.len))
             {
                 error("Integer is too large");
                 return;
@@ -677,8 +672,8 @@ static void number()
         }
         case TOKEN_INT_HEX:
         {
-            int64_t value = INT_CAST(parser.previous.start + 2, 16);
-            if(errno == ERANGE)
+            int64_t value = 0;
+            if(!str_hex_to_int(&value, parser.previous.start + 2, parser.previous.len - 2))
             {
                 error("Integer is too large");
                 return;
@@ -688,8 +683,8 @@ static void number()
         }
         case TOKEN_INT_BIN:
         {
-            int64_t value = INT_CAST(parser.previous.start + 2, 2);
-            if(errno == ERANGE)
+            int64_t value = 0;
+            if(!str_bin_to_int(&value, parser.previous.start + 2, parser.previous.len - 2))
             {
                 error("Integer is too large");
                 return;
@@ -699,8 +694,8 @@ static void number()
         }
         case TOKEN_INT_OCT:
         {
-            int64_t value = INT_CAST(parser.previous.start + 2, 8);
-            if(errno == ERANGE)
+            int64_t value = 0;
+            if(!str_oct_to_int(&value, parser.previous.start + 2, parser.previous.len - 2))
             {
                 error("Integer is too large");
                 return;
@@ -710,8 +705,8 @@ static void number()
         }
         case TOKEN_FLOAT:
         {
-            double value = strtod(parser.previous.start, NULL);
-            if(errno == ERANGE)
+            double value = 0;
+            if(!str_to_float(&value, parser.previous.start, parser.previous.len))
             {
                 error("Float is too large");
                 return;
@@ -801,7 +796,7 @@ static void string()
         {
             case TOKEN_STR_BODY:
             {
-                emit_const(OBJ_VAL((Obj*)make_str(parser.previous.start, parser.previous.len)));
+                emit_const(OBJ_VAL((Obj*)copy_str(parser.previous.start, parser.previous.len)));
                 if(!first)
                 {
                     emit_inst(OP_ADD);

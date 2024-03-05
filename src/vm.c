@@ -3,10 +3,13 @@
 #include <stdio.h>
 #include <compiler.h>
 #include <stdarg.h>
+#include <stdlib.h>
+#include <errno.h>
 #include <lines.h>
 #include <object.h>
 #include <rain_memory.h>
 #include <string.h>
+#include <convert.h>
 
 #ifdef DEBUG_TRACE_EXECUTION
 #include <debug.h>
@@ -49,11 +52,11 @@ static void concatenate()
 {
     ObjString* b = AS_STRING(pop());
     ObjString* a = AS_STRING(pop());
-    ObjString* res = allocate_str(a->len + b->len);
-    memcpy(res->chars, a->chars, a->len);
-    memcpy(res->chars + a->len, b->chars, b->len);
-    hash_str(res);
-    push(OBJ_VAL((Obj*)res));
+    size_t res_len = a->len + b->len;
+    char* res_chars = ALLOCATE(char, res_len);
+    memcpy(res_chars, a->chars, a->len);
+    memcpy(res_chars + a->len, b->chars, b->len);
+    push(OBJ_VAL((Obj*)take_str(res_chars, res_len)));
 }
 
 #define READ_INST() (*(vm.ip++))
@@ -527,7 +530,31 @@ static InterpretResult run()
                     }
                     case VAL_OBJ:
                     {
-                        push(BOOL_VAL(true));
+                        switch(OBJ_TYPE(val))
+                        {
+                            case OBJ_STRING:
+                            {
+                                if(AS_STRING(val)->len == 4 && memcmp(AS_CSTRING(val), "true", 4) == 0)
+                                {
+                                    push(BOOL_VAL(true));
+                                }
+                                else if(AS_STRING(val)->len == 5 && memcmp(AS_CSTRING(val), "false", 5) == 0)
+                                {
+                                    push(BOOL_VAL(false));
+                                }
+                                else
+                                {
+                                    runtime_error("Cannot cast '%s' to bool", AS_CSTRING(val));
+                                    return INTERPRET_RUNTIME_ERROR;
+                                }
+                                break;
+                            }
+                            default:
+                            {
+                                push(BOOL_VAL(true));
+                                break;
+                            }
+                        }
                         break;
                     }
                     default:
@@ -565,8 +592,26 @@ static InterpretResult run()
                     }
                     case VAL_OBJ:
                     {
-                        runtime_error("Unsupported conversion of object to int");
-                        return INTERPRET_RUNTIME_ERROR;
+                        switch(OBJ_TYPE(val))
+                        {
+                            case OBJ_STRING:
+                            {
+                                int64_t int_val = 0;
+                                if(!str_to_int(&int_val, AS_CSTRING(val), AS_STRING(val)->len))
+                                {
+                                    runtime_error("Cannot cast '%s' to int", AS_CSTRING(val));
+                                    return INTERPRET_RUNTIME_ERROR;
+                                }
+                                push(INT_VAL(int_val));
+                                break;
+                            }
+                            default:
+                            {
+                                runtime_error("Unsupported conversion of object to int");
+                                return INTERPRET_RUNTIME_ERROR;
+                            }
+                        }
+                        break;
                     }
                     default:
                     {
@@ -583,40 +628,26 @@ static InterpretResult run()
                 {
                     case VAL_BOOL:
                     {
-                        push(OBJ_VAL((Obj*)(AS_BOOL(val) ? make_str("true", 4) : make_str("false", 5))));
+                        push(OBJ_VAL((Obj*)(AS_BOOL(val) ? copy_str("true", 4) : copy_str("false", 5))));
                         break;
                     }
                     case VAL_INT:
                     {
                         int64_t num = AS_INT(val);
-#ifdef LONG64
-                        size_t len = (size_t)snprintf(NULL, 0, "%li", num);
-#else
-                        size_t len = (size_t)snprintf(NULL, 0, "%lli", num);
-#endif
-                        ObjString* res = allocate_str(len);
-#ifdef LONG64
-                        snprintf(res->chars, len + 1, "%li", num);
-#else
-                        size_t len = (size_t)snprintf(res->chars, len + 1, "%lli", num);
-#endif
-                        hash_str(res);
-                        push(OBJ_VAL((Obj*)res));
+                        char* res_chars = int_to_dec_str(num);
+                        push(OBJ_VAL((Obj*)take_str(res_chars, strlen(res_chars))));
                         break;
                     }
                     case VAL_NULL:
                     {
-                        push(OBJ_VAL((Obj*)make_str("null", 4)));
+                        push(OBJ_VAL((Obj*)copy_str("null", 4)));
                         break;
                     }
                     case VAL_FLOAT:
                     {
                         double num = AS_FLOAT(val);
-                        size_t len = (size_t)snprintf(NULL, 0, "%f", num);
-                        ObjString* res = allocate_str(len);
-                        snprintf(res->chars, len + 1, "%f", num);
-                        hash_str(res);
-                        push(OBJ_VAL((Obj*)res));
+                        char* res_chars = float_to_str(num);
+                        push(OBJ_VAL((Obj*)take_str(res_chars, strlen(res_chars))));
                         break;
                     }
                     case VAL_OBJ:
@@ -671,8 +702,26 @@ static InterpretResult run()
                     }
                     case VAL_OBJ:
                     {
-                        runtime_error("Unsupported conversion of object to float");
-                        return INTERPRET_RUNTIME_ERROR;
+                        switch(OBJ_TYPE(val))
+                        {
+                            case OBJ_STRING:
+                            {
+                                double float_val = 0;
+                                if(!str_to_float(&float_val, AS_CSTRING(val), AS_STRING(val)->len))
+                                {
+                                    runtime_error("Cannot cast '%s' to float", AS_CSTRING(val));
+                                    return INTERPRET_RUNTIME_ERROR;
+                                }
+                                push(FLOAT_VAL(float_val));
+                                break;
+                            }
+                            default:
+                            {
+                                runtime_error("Unsupported conversion of object to float");
+                                return INTERPRET_RUNTIME_ERROR;
+                            }
+                        }
+                        break;
                     }
                     default:
                     {

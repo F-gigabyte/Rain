@@ -1,6 +1,7 @@
 #include <hash_table.h>
 #include <rain_memory.h>
 #include <object.h>
+#include <string.h>
 
 #define TABLE_MAX_LOAD 0.75
 
@@ -127,5 +128,30 @@ void copy_hash_table(HashTable* from, HashTable* to)
         {
             hash_table_set(to, entry->key, entry->value);
         }
+    }
+}
+
+ObjString* hash_table_find_str(HashTable* table, const char* chars, size_t len, uint32_t hash)
+{
+    if(table->count == 0)
+    {
+        return NULL;
+    }
+    uint32_t index = hash % table->capacity;
+    for(;;)
+    {
+        Entry* entry = &table->entries[index];
+        if(entry->key == NULL)
+        {
+            if(IS_NULL(entry->value))
+            {
+                return NULL;
+            }
+        }
+        else if(entry->key->len == len && entry->key->hash == hash && memcmp(entry->key->chars, chars, len) == 0)
+        {
+            return entry->key;
+        }
+        index = ((index + 1) * (index + 1)) % table->capacity;
     }
 }

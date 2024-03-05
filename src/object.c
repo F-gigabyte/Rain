@@ -10,15 +10,15 @@
 #define ALLOCATE_STR(len) \
     (ObjString*)allocate_obj(sizeof(ObjString) + len, OBJ_STRING)
 
-void hash_str(ObjString* str)
+static uint32_t hash_str(const char* str, size_t len)
 {
     uint32_t hash = 2166136261u;
-    for(size_t i = 0; i < str->len; i++)
+    for(size_t i = 0; i < len; i++)
     {
-        hash ^= (uint8_t)str->chars[i];
+        hash ^= (uint8_t)str[i];
         hash *= 16777619;
     }
-    str->hash = hash;
+    return hash;
 }
 
 static Obj* allocate_obj(size_t size, ObjType type)
@@ -30,15 +30,32 @@ static Obj* allocate_obj(size_t size, ObjType type)
     return obj;
 }
 
-ObjString* allocate_str(size_t len)
+static ObjString* allocate_str(const char* chars, size_t len)
 {
     ObjString* str = ALLOCATE_STR(len + 1);
     str->len = len;
-    str->hash = 0;
+    memcpy(str->chars, chars, len);
+    str->chars[len + 1] = 0;
+    str->hash = hash_str(str->chars, str->len);
+    hash_table_set(&vm.strings, str, NULL_VAL);
     return str;
 }
 
-ObjString* make_str(const char* chars, size_t len)
+ObjString* take_str(char* chars, size_t len)
+{
+    uint32_t hash = hash_str(chars, len);
+    ObjString* interned = hash_table_find_str(&vm.strings, chars, len, hash);
+    if(interned != NULL)
+    {
+        FREE_ARRAY(char, chars, len);
+        return interned;
+    }
+    ObjString* res = allocate_str(chars, len);
+    FREE_ARRAY(char, chars, len);
+    return res;
+}
+
+ObjString* copy_str(const char* chars, size_t len)
 {
     size_t res_len = 0;
     size_t i = 0;
@@ -93,7 +110,7 @@ ObjString* make_str(const char* chars, size_t len)
     {
         res_len++;
     }
-    ObjString* res_str = allocate_str(res_len);
+    char* res_chars = ALLOCATE(char, res_len); 
     size_t pos = 0;
     for(i = 0; (i < len - 1) && len && pos < res_len; i++,pos++)
     {
@@ -106,39 +123,39 @@ ObjString* make_str(const char* chars, size_t len)
                 {
                     case '\'':
                     {
-                        res_str->chars[pos] = '\'';
+                        res_chars[pos] = '\'';
                         break;
                     }
                     case '\"':
                     {
-                        res_str->chars[pos] = '\"';
+                        res_chars[pos] = '\"';
                         break;
                     }
                     case 't':
                     {
-                        res_str->chars[pos] = '\t';
+                        res_chars[pos] = '\t';
                         break;
                     }
                     case 'n':
                     {
-                        res_str->chars[pos] = '\n';
+                        res_chars[pos] = '\n';
                         break;
                     }
                     case 'r':
                     {
-                        res_str->chars[pos] = '\r';
+                        res_chars[pos] = '\r';
                         break;
                     }
                     case '\\':
                     {
-                        res_str->chars[pos] = '\\';
+                        res_chars[pos] = '\\';
                         break;
                     }
                     default:
                     {
-                        res_str->chars[pos] = '\\';
+                        res_chars[pos] = '\\';
                         pos++;
-                        res_str->chars[pos] = chars[i];
+                        res_chars[pos] = chars[i];
                         break;
                     }
                 }
@@ -149,30 +166,37 @@ ObjString* make_str(const char* chars, size_t len)
                 i++;
                 if(chars[i] == '{')
                 {
-                    res_str->chars[pos] = '{';
+                    res_chars[pos] = '{';
                 }
                 else
                 {
-                    res_str->chars[pos] = '{';
+                    res_chars[pos] = '{';
                     pos++;
-                    res_str->chars[pos] = chars[i];
+                    res_chars[pos] = chars[i];
                 }
                 break;
             }
             default:
             {
-                res_str->chars[pos] = chars[i];
+                res_chars[pos] = chars[i];
                 break;
             }
         }
     }
     if(i < len)
     {
-        res_str->chars[pos] = chars[i];
+        res_chars[pos] = chars[i];
     }
-    res_str->chars[res_len] = 0;
-    hash_str(res_str);
-    return res_str;
+    uint32_t hash = hash_str(res_chars, res_len);
+    ObjString* interned = hash_table_find_str(&vm.strings, res_chars, len, hash);
+    if(interned != NULL)
+    {
+        FREE_ARRAY(char, res_chars, res_len);
+        return interned;
+    }
+    ObjString* res = allocate_str(res_chars, res_len);
+    FREE_ARRAY(char, res_chars, res_len);
+    return res;
 }
 
 void print_obj(Value value)

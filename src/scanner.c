@@ -702,6 +702,10 @@ Token scan_token()
                 {
                     return make_token(TOKEN_MINUS_EQL);
                 }
+                else if(is_digit(peek()))
+                {
+                    return number(c);
+                }
                 else
                 {
                     return make_token(TOKEN_MINUS);

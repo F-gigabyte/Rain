@@ -21,5 +21,6 @@ bool hash_table_set(HashTable* table, ObjString* key, Value value);
 bool hash_table_get(HashTable* table, ObjString* key, Value* value);
 bool hash_table_delete(HashTable* table, ObjString* key);
 void copy_hash_table(HashTable* from, HashTable* to);
+ObjString* hash_table_find_str(HashTable* table, const char* chars, size_t len, uint32_t hash);
 
 #endif

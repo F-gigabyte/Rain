@@ -37,9 +37,7 @@ bool values_eql(Value a, Value b)
         }
         case VAL_OBJ:
         {
-            ObjString* str_a = AS_STRING(a);
-            ObjString* str_b = AS_STRING(b);
-            return str_a->len == str_b->len && memcmp(str_a->chars, str_b->chars, str_a->len) == 0;
+            return AS_OBJ(a) == AS_OBJ(b);
         }
         default:
         {

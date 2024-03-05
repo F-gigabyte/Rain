@@ -31,9 +31,8 @@ static inline bool is_obj_type(Value value, ObjType type)
     return IS_OBJ(value) && AS_OBJ(value)->type == type;
 }
 
-ObjString* allocate_str(size_t len);
-void hash_str(ObjString* str);
-ObjString* make_str(const char* chars, size_t len);
+ObjString* take_str(char* chars, size_t len);
+ObjString* copy_str(const char* chars, size_t len);
 void print_obj(Value value);
 
 #endif
