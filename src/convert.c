@@ -272,5 +272,5 @@ char* int_to_bin_str(int64_t num)
 
 char* float_to_str(double num)
 {
-    return d2fixed(num, 5);
+    return d2s(num);
 }

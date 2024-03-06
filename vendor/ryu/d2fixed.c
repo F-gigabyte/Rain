@@ -29,6 +29,7 @@
 
 #include <ryu/ryu.h>
 
+#include <rain_memory.h>
 #include <assert.h>
 #include <stdbool.h>
 #include <stdint.h>
@@ -559,7 +560,7 @@ void d2fixed_buffered(double d, uint32_t precision, char* result) {
 }
 
 char* d2fixed(double d, uint32_t precision) {
-  char* const buffer = (char*)malloc(2000);
+  char* const buffer = ALLOCATE(char, 2000);
   const int index = d2fixed_buffered_n(d, precision, buffer);
   buffer[index] = '\0';
   return buffer;
@@ -816,7 +817,7 @@ void d2exp_buffered(double d, uint32_t precision, char* result) {
 }
 
 char* d2exp(double d, uint32_t precision) {
-  char* const buffer = (char*)malloc(2000);
+  char* const buffer = ALLOCATE(char, 2000);
   const int index = d2exp_buffered_n(d, precision, buffer);
   buffer[index] = '\0';
   return buffer;
