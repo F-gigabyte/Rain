@@ -735,6 +735,11 @@ static InterpretResult run()
                 printf("\n");
                 break;
             }
+            case OP_POP:
+            {
+                pop();
+                break;
+            }
             default:
             {
                 runtime_error("Unknown instruction %u", inst);

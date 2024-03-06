@@ -39,6 +39,7 @@ typedef enum
     OP_CAST_STR,
     OP_CAST_BOOL,
     OP_PRINT,
+    OP_POP,
 } Opcode;
 
 typedef struct

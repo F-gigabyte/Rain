@@ -170,6 +170,10 @@ size_t disassemble_inst(Chunk* chunk, size_t offset)
         {
             return simple_inst("OP_PRINT", offset);
         }
+        case OP_POP:
+        {
+            return simple_inst("OP_POP", offset);
+        }
         default:
         {
             printf("Unknown opcode %d\n", inst);

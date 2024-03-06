@@ -857,11 +857,22 @@ static void print_statement()
     emit_inst(OP_PRINT);
 }
 
+static void expression_statement()
+{
+    expression();
+    consume(TOKEN_SEMICOLON, "Expect ';' after expression");
+    emit_inst(OP_POP);
+}
+
 static void statement()
 {
     if(match(TOKEN_PRINT))
     {
         print_statement();
+    }
+    else
+    {
+        expression_statement();
     }
 }
 
