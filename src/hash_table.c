@@ -18,9 +18,17 @@ void free_hash_table(HashTable* table)
     init_hash_table(table);
 }
 
+static inline size_t comp_next_index(size_t index, size_t* add_on, size_t len)
+{
+    size_t next_index = (index + (*add_on * *add_on)) % len;
+    (*add_on)++;
+    return next_index;
+}
+
 static Entry* find_entry(Entry* entries, size_t len, ObjString* key)
 {
     size_t index = key->hash % len;
+    size_t add_on = 1;
     Entry* tombstone = NULL;
     for(;;)
     {
@@ -40,7 +48,7 @@ static Entry* find_entry(Entry* entries, size_t len, ObjString* key)
         {
             return entry;
         }
-        index = ((index + 1) * (index + 1)) % len;
+        index = comp_next_index(index, &add_on, len);
     }
 }
 
@@ -137,6 +145,7 @@ ObjString* hash_table_find_str(HashTable* table, const char* chars, size_t len, 
     {
         return NULL;
     }
+    size_t add_on = 1;
     uint32_t index = hash % table->capacity;
     for(;;)
     {
@@ -152,6 +161,7 @@ ObjString* hash_table_find_str(HashTable* table, const char* chars, size_t len, 
         {
             return entry->key;
         }
-        index = ((index + 1) * (index + 1)) % table->capacity;
+        index = comp_next_index(index, &add_on, table->capacity);
+        add_on++;
     }
 }

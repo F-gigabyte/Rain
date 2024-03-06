@@ -621,7 +621,10 @@ static void pop_mode()
 
 Token scan_token()
 {
-    skip_whitespace();
+    if(scanner.mode_node->mode != SCANNER_STR)
+    {
+        skip_whitespace();
+    }
     scanner.start = scanner.current;
     if(is_at_end())
     {
