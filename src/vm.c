@@ -89,9 +89,7 @@ static InterpretResult run()
         {
             case OP_RETURN:
             {
-                print_value(pop());
-                printf("\n");
-                vm.ip++;
+                // Exit program
                 return INTERPRET_OK;
             }
             case OP_CONST_BYTE:
@@ -729,6 +727,12 @@ static InterpretResult run()
                         return INTERPRET_RUNTIME_ERROR;
                     }
                 }
+                break;
+            }
+            case OP_PRINT:
+            {
+                print_value(pop());
+                printf("\n");
                 break;
             }
             default:

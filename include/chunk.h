@@ -38,6 +38,7 @@ typedef enum
     OP_CAST_FLOAT,
     OP_CAST_STR,
     OP_CAST_BOOL,
+    OP_PRINT,
 } Opcode;
 
 typedef struct

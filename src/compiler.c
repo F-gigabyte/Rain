@@ -458,6 +458,21 @@ static void consume(TokenType type, const char* msg)
     error_at_current(msg);
 }
 
+static bool check(TokenType type)
+{
+    return parser.current.type == type;
+}
+
+static bool match(TokenType type)
+{
+    if(!check(type))
+    {
+        return false;
+    }
+    advance();
+    return true;
+}
+
 static void emit_inst(inst_type inst)
 {
     write_chunk(current_chunk(), inst, parser.previous.line);
@@ -497,6 +512,8 @@ static void emit_const(Value value)
 }
 
 static void expression();
+static void statement();
+static void declaration();
 
 static ParseRule* get_rule(TokenType type)
 {
@@ -831,6 +848,27 @@ static void expression()
     parse_precedence(PREC_ASSIGNMENT);
 }
 
+static void print_statement()
+{
+    consume(TOKEN_LEFT_PAREN, "Expect '(' after print");
+    expression();
+    consume(TOKEN_RIGHT_PAREN, "Expect ')' after print expression");
+    consume(TOKEN_SEMICOLON, "Expect ';' after statement");
+    emit_inst(OP_PRINT);
+}
+
+static void statement()
+{
+    if(match(TOKEN_PRINT))
+    {
+        print_statement();
+    }
+}
+
+static void declaration()
+{
+    statement();
+}
 
 ParseRule rules[] = {
     [TOKEN_LEFT_PAREN]              = {grouping, NULL,   PREC_NONE},
@@ -926,8 +964,32 @@ bool compile(const char* src, Chunk* chunk)
     parser.panic_mode = false;
 
     advance();
-    expression();
-    consume(TOKEN_EOF, "Expected end of expression");
+    
+    while(!match(TOKEN_EOF))
+    {
+        declaration();
+    }
+    if(get_scanner_mode() != SCANNER_NORMAL)
+    {
+        switch(get_scanner_mode())
+        {
+            case SCANNER_INTERP:
+            {
+                error("Unescaped Interpolation");    
+                break;
+            }
+            case SCANNER_STR:
+            {
+                error("Unescaped String");
+                break;
+            }
+            default:
+            {
+                break;
+            }
+        }
+    }
+
     end_compiler();
     return !parser.had_error;
 }
