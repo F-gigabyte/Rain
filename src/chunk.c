@@ -30,19 +30,19 @@ size_t add_const(Chunk* chunk, Value value)
     return chunk->consts.size - 1;
 }
 
-void write_chunk_const(Chunk* chunk, size_t const_index, size_t line)
+static void write_chunk_const_impl(Chunk* chunk, size_t const_index, size_t line, inst_type byte_inst, inst_type short_inst, inst_type word_inst, inst_type long_inst)
 {
     size_t inst_limit = 1 << (sizeof(inst_type) * 8);
     size_t inst_shift = sizeof(inst_limit) * 8;
     size_t inst_mask = inst_limit - 1;
     if(const_index < 0x100)
     {
-        write_chunk(chunk, OP_CONST_BYTE, line);
+        write_chunk(chunk, byte_inst, line);
         write_chunk(chunk, const_index, line);
     }
     else if(const_index < 0x10000)
     {
-        write_chunk(chunk, OP_CONST_SHORT, line);
+        write_chunk(chunk, short_inst, line);
         size_t shift = 0;
         while(shift < 16)
         {
@@ -52,7 +52,7 @@ void write_chunk_const(Chunk* chunk, size_t const_index, size_t line)
     }
     else if(const_index < 0x100000000)
     {
-        write_chunk(chunk, OP_CONST_WORD, line);
+        write_chunk(chunk, word_inst, line);
         size_t shift = 0;
         while(shift < 32)
         {
@@ -62,7 +62,7 @@ void write_chunk_const(Chunk* chunk, size_t const_index, size_t line)
     }
     else
     {
-        write_chunk(chunk, OP_CONST_LONG, line);
+        write_chunk(chunk, long_inst, line);
         size_t shift = 0;
         while(shift < 64)
         {
@@ -70,6 +70,28 @@ void write_chunk_const(Chunk* chunk, size_t const_index, size_t line)
             shift += inst_shift;
         }
     }
+    
+}
+
+void write_chunk_const(Chunk* chunk, size_t const_index, size_t line)
+{
+    write_chunk_const_impl(chunk, const_index, line, OP_CONST_BYTE, OP_CONST_SHORT, OP_CONST_WORD, OP_CONST_LONG);
+}
+
+void write_chunk_var(Chunk* chunk, size_t const_index, size_t line)
+{
+    write_chunk_const_impl(chunk, const_index, line, OP_DEFINE_GLOBAL_BYTE, OP_DEFINE_GLOBAL_SHORT, OP_DEFINE_GLOBAL_WORD, OP_DEFINE_GLOBAL_LONG);
+}
+
+
+void write_chunk_get_var(Chunk* chunk, size_t const_index, size_t line)
+{
+    write_chunk_const_impl(chunk, const_index, line, OP_GET_GLOBAL_BYTE, OP_GET_GLOBAL_SHORT, OP_GET_GLOBAL_WORD, OP_GET_GLOBAL_LONG);
+}
+
+void write_chunk_set_var(Chunk* chunk, size_t const_index, size_t line)
+{
+    write_chunk_const_impl(chunk, const_index, line, OP_SET_GLOBAL_BYTE, OP_SET_GLOBAL_SHORT, OP_SET_GLOBAL_WORD, OP_SET_GLOBAL_LONG);
 }
 
 size_t read_chunk_const(inst_type* inst, size_t* offset, size_t off_size)

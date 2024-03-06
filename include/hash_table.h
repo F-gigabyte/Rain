@@ -4,9 +4,15 @@
 #include <common.h>
 #include <value.h>
 
+typedef struct
+{
+    bool constant;
+    Value value;
+} VarValue;
+
 typedef struct {
     ObjString* key;
-    Value value;
+    VarValue var;
 } Entry;
 
 typedef struct {
@@ -17,7 +23,7 @@ typedef struct {
 
 void init_hash_table(HashTable* table);
 void free_hash_table(HashTable* table);
-bool hash_table_set(HashTable* table, ObjString* key, Value value);
+bool hash_table_set(HashTable* table, ObjString* key, bool constant, Value value);
 bool hash_table_get(HashTable* table, ObjString* key, Value* value);
 bool hash_table_delete(HashTable* table, ObjString* key);
 void copy_hash_table(HashTable* from, HashTable* to);

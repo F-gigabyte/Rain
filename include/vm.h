@@ -12,6 +12,7 @@ typedef struct {
     inst_type* ip;
     Value stack[STACK_MAX];
     Value* stack_top;
+    HashTable globals;
     HashTable strings;
     Obj* objects;
 } VM;

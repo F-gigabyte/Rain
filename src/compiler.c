@@ -511,6 +511,21 @@ static void emit_const(Value value)
     write_chunk_const(current_chunk(), make_const(value), parser.previous.line);
 }
 
+static void emit_var(Value value)
+{
+    write_chunk_var(current_chunk(), make_const(value), parser.previous.line);
+}
+
+static void emit_get_var(Value value)
+{
+    write_chunk_get_var(current_chunk(), make_const(value), parser.previous.line);
+}
+
+static void emit_set_var(Value value)
+{
+    write_chunk_set_var(current_chunk(), make_const(value), parser.previous.line);
+}
+
 static void expression();
 static void statement();
 static void declaration();
@@ -843,9 +858,58 @@ static void string()
     }
 }
 
+static Value ident_constant(Token* name);
+
+static void named_variable(Token name)
+{
+    Value arg = ident_constant(&name);
+    emit_get_var(arg);
+}
+
+static void variable()
+{
+    named_variable(parser.previous);
+}
+
 static void expression()
 {
     parse_precedence(PREC_ASSIGNMENT);
+}
+
+static void synchronise()
+{
+    parser.panic_mode = false;
+    while(parser.current.type != TOKEN_EOF)
+    {
+        if(parser.previous.type == TOKEN_SEMICOLON)
+        {
+            return;
+        }
+        switch (parser.current.type)
+        {
+            case TOKEN_CLASS:
+            case TOKEN_FUNC:
+            case TOKEN_VAR:
+            case TOKEN_CONST:
+            case TOKEN_FOR:
+            case TOKEN_IF:
+            case TOKEN_WHILE:
+            case TOKEN_PRINT:
+            case TOKEN_PRIV:
+            case TOKEN_PROT:
+            case TOKEN_PUB:
+            case TOKEN_RET:
+            case TOKEN_VIRTUAL:
+            {
+                return;
+            }
+            default:
+            {
+                break;
+            }
+        }
+        advance();
+    }
 }
 
 static void print_statement()
@@ -876,9 +940,57 @@ static void statement()
     }
 }
 
+static Value ident_constant(Token* name)
+{
+    return OBJ_VAL((Obj*)copy_str(name->start, name->len));
+}
+
+static Value parse_variable(const char* error_msg)
+{
+    consume(TOKEN_IDENT, error_msg);
+    return ident_constant(&parser.previous);
+}
+
+static void define_variable(Value name, bool constant)
+{
+    emit_const(BOOL_VAL(constant));
+    emit_var(name);
+}
+
+static void var_declaration(bool constant)
+{
+    Value name = parse_variable("Expect variable name");
+    if(match(TOKEN_EQL))
+    {
+        expression();
+    }
+    else
+    {
+        emit_inst(OP_NULL);
+    }
+    consume(TOKEN_SEMICOLON, "Expect ';' after variable declaration");
+    define_variable(name, constant);
+}
+
 static void declaration()
 {
-    statement();
+    if(match(TOKEN_VAR))
+    {
+        var_declaration(false);
+    }
+    else if(match(TOKEN_CONST))
+    {
+        var_declaration(true);
+    }
+    else
+    {
+        statement();
+    }
+
+    if(parser.panic_mode)
+    {
+        synchronise();
+    }
 }
 
 ParseRule rules[] = {
@@ -920,7 +1032,7 @@ ParseRule rules[] = {
     [TOKEN_PERC_EQL]                = {NULL,     NULL,   PREC_NONE},
     [TOKEN_GREATER_GREATER_EQL]     = {NULL,     NULL,   PREC_NONE},
     [TOKEN_LESS_LESS_EQL]           = {NULL,     NULL,   PREC_NONE},
-    [TOKEN_IDENT]                   = {NULL,     NULL,   PREC_NONE},
+    [TOKEN_IDENT]                   = {variable,     NULL,   PREC_NONE},
     [TOKEN_STR_START]               = {string,   NULL,   PREC_NONE},
     [TOKEN_STR_BODY]                = {NULL,     NULL,   PREC_NONE},
     [TOKEN_STR_END]                 = {NULL,     NULL,   PREC_NONE},

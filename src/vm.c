@@ -40,6 +40,7 @@ void init_vm()
 {
     reset_stack();
     vm.objects = NULL;
+    init_hash_table(&vm.globals);
     init_hash_table(&vm.strings);
 }
 
@@ -60,7 +61,6 @@ static void concatenate()
 }
 
 #define READ_INST() (*(vm.ip++))
-
 static Value read_const(size_t offset_size)
 {
     size_t offset = 0;
@@ -68,6 +68,7 @@ static Value read_const(size_t offset_size)
     vm.ip += offset;
     return vm.chunk->consts.values[index];
 }
+#define READ_STRING(offset_size) AS_STRING(read_const(offset_size))
 
 static InterpretResult run()
 {
@@ -740,6 +741,118 @@ static InterpretResult run()
                 pop();
                 break;
             }
+            case OP_DEFINE_GLOBAL_BYTE:
+            {
+                ObjString* name = READ_STRING(1);
+                if(hash_table_find_str(&vm.globals, name->chars, name->len, name->hash) == NULL)
+                {
+                    hash_table_set(&vm.globals, name, AS_BOOL(peek(0)), peek(1));
+                    pop();
+                    pop();
+                }
+                else
+                {
+                    runtime_error("Redefinition of global variable '%s'", name->chars);
+                    return INTERPRET_RUNTIME_ERROR;
+                }
+                break;
+            }
+            case OP_DEFINE_GLOBAL_SHORT:
+            {
+                ObjString* name = READ_STRING(2);
+                if(hash_table_find_str(&vm.globals, name->chars, name->len, name->hash) == NULL)
+                {
+                    hash_table_set(&vm.globals, name, AS_BOOL(peek(0)), peek(1));
+                    pop();
+                    pop();
+                }
+                else
+                {
+                    runtime_error("Redefinition of global variable '%s'", name->chars);
+                    return INTERPRET_RUNTIME_ERROR;
+                }
+                break;
+            }
+            case OP_DEFINE_GLOBAL_WORD:
+            {
+                ObjString* name = READ_STRING(4);
+                if(hash_table_find_str(&vm.globals, name->chars, name->len, name->hash) == NULL)
+                {
+                    hash_table_set(&vm.globals, name, AS_BOOL(peek(0)), peek(1));
+                    pop();
+                    pop();
+                }
+                else
+                {
+                    runtime_error("Redefinition of global variable '%s'", name->chars);
+                    return INTERPRET_RUNTIME_ERROR;
+                }
+                break;
+            }
+            case OP_DEFINE_GLOBAL_LONG:
+            {
+                ObjString* name = READ_STRING(8);
+                if(hash_table_find_str(&vm.globals, name->chars, name->len, name->hash) == NULL)
+                {
+                    hash_table_set(&vm.globals, name, AS_BOOL(peek(0)), peek(1));
+                    pop();
+                    pop();
+                }
+                else
+                {
+                    runtime_error("Redefinition of global variable '%s'", name->chars);
+                    return INTERPRET_RUNTIME_ERROR;
+                }
+                break;
+            }
+            case OP_GET_GLOBAL_BYTE:
+            {
+                ObjString* name = READ_STRING(1);
+                Value value;
+                if(!hash_table_get(&vm.globals, name, &value))
+                {
+                    runtime_error("Undefined variable '%s'", name->chars);
+                    return INTERPRET_RUNTIME_ERROR;
+                }
+                push(value);
+                break;
+            }
+            case OP_GET_GLOBAL_SHORT:
+            {
+                ObjString* name = READ_STRING(2);
+                Value value;
+                if(!hash_table_get(&vm.globals, name, &value))
+                {
+                    runtime_error("Undefined variable '%s'", name->chars);
+                    return INTERPRET_RUNTIME_ERROR;
+                }
+                push(value);
+                break;
+            }
+            case OP_GET_GLOBAL_WORD:
+            {
+                ObjString* name = READ_STRING(4);
+                Value value;
+                if(!hash_table_get(&vm.globals, name, &value))
+                {
+                    runtime_error("Undefined variable '%s'", name->chars);
+                    return INTERPRET_RUNTIME_ERROR;
+                }
+                push(value);
+                break;
+            }
+            case OP_GET_GLOBAL_LONG:
+            {
+                ObjString* name = READ_STRING(8);
+                Value value;
+                if(!hash_table_get(&vm.globals, name, &value))
+                {
+                    runtime_error("Undefined variable '%s'", name->chars);
+                    return INTERPRET_RUNTIME_ERROR;
+                }
+                push(value);
+                break;
+            }
             default:
             {
                 runtime_error("Unknown instruction %u", inst);
@@ -750,7 +863,7 @@ static InterpretResult run()
 }
 
 #undef READ_INST
-#undef BINARY_OP
+#undef READ_STRING
 
 InterpretResult interpret(const char* src)
 {
@@ -784,6 +897,7 @@ Value pop()
 
 void free_vm()
 {
+    free_hash_table(&vm.globals);
     free_hash_table(&vm.strings);
     free_objs();
 }

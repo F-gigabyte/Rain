@@ -4,6 +4,8 @@
 #include <string.h>
 
 #define TABLE_MAX_LOAD 0.75
+#define NULL_VAR (VarValue){.constant = false, .value = NULL_VAL}
+#define VAR_VALUE(constant, value) (VarValue){.constant = (constant), .value = (value)}
 
 void init_hash_table(HashTable* table)
 {
@@ -35,7 +37,7 @@ static Entry* find_entry(Entry* entries, size_t len, ObjString* key)
         Entry* entry = entries + index;
         if(entry->key == NULL)
         {
-            if(IS_NULL(entry->value))
+            if(IS_NULL(entry->var.value))
             {
                 return tombstone != NULL ? tombstone : entry;
             }
@@ -58,7 +60,7 @@ static void adjust_capacity(HashTable* table, size_t capacity)
     for(size_t i = 0; i < capacity; i++)
     {
         entries[i].key = NULL;
-        entries[i].value = NULL_VAL;
+        entries[i].var = NULL_VAR;
     }
     table->count = 0;
     for(size_t i = 0; i < table->capacity; i++)
@@ -68,7 +70,7 @@ static void adjust_capacity(HashTable* table, size_t capacity)
         {
             Entry* dest = find_entry(entries, capacity, entry->key);
             dest->key = entry->key;
-            dest->value = entry->value;
+            dest->var = entry->var;
             table->count++;
         }
     }
@@ -77,7 +79,7 @@ static void adjust_capacity(HashTable* table, size_t capacity)
     table->capacity = capacity;
 }
 
-bool hash_table_set(HashTable* table, ObjString* key, Value value)
+bool hash_table_set(HashTable* table, ObjString* key, bool constant, Value value)
 {
     if(table->count + 1 > table->capacity * TABLE_MAX_LOAD)
     {
@@ -87,12 +89,12 @@ bool hash_table_set(HashTable* table, ObjString* key, Value value)
 
     Entry* entry = find_entry(table->entries, table->capacity, key);
     bool new_key = entry->key == NULL;
-    if(new_key && IS_NULL(entry->value))
+    if(new_key && IS_NULL(entry->var.value))
     {
         table->count++;
     }
     entry->key = key;
-    entry->value = value;
+    entry->var = VAR_VALUE(constant, value);
     return new_key;
 }
 
@@ -107,7 +109,7 @@ bool hash_table_get(HashTable* table, ObjString* key, Value* value)
     {
         return false;
     }
-    *value = entry->value;
+    *value = entry->var.value;
     return true;
 }
 
@@ -123,7 +125,8 @@ bool hash_table_delete(HashTable* table, ObjString* key)
         return false;
     }
     entry->key = NULL;
-    entry->value = BOOL_VAL(true);
+    entry->var.value = BOOL_VAL(true);
+    entry->var.constant = false;
     return true;
 }
 
@@ -134,7 +137,7 @@ void copy_hash_table(HashTable* from, HashTable* to)
         Entry* entry = from->entries + i;
         if(entry->key != NULL)
         {
-            hash_table_set(to, entry->key, entry->value);
+            hash_table_set(to, entry->key, entry->var.constant, entry->var.value);
         }
     }
 }
@@ -152,7 +155,7 @@ ObjString* hash_table_find_str(HashTable* table, const char* chars, size_t len, 
         Entry* entry = &table->entries[index];
         if(entry->key == NULL)
         {
-            if(IS_NULL(entry->value))
+            if(IS_NULL(entry->var.value))
             {
                 return NULL;
             }
