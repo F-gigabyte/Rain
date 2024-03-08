@@ -79,7 +79,7 @@ static void adjust_capacity(HashTable* table, size_t capacity)
     table->capacity = capacity;
 }
 
-bool hash_table_set(HashTable* table, ObjString* key, bool constant, Value value)
+bool hash_table_insert(HashTable* table, ObjString* key, bool constant, Value value)
 {
     if(table->count + 1 > table->capacity * TABLE_MAX_LOAD)
     {
@@ -92,10 +92,21 @@ bool hash_table_set(HashTable* table, ObjString* key, bool constant, Value value
     if(new_key && IS_NULL(entry->var.value))
     {
         table->count++;
+        entry->key = key;
+        entry->var = VAR_VALUE(constant, value);
     }
-    entry->key = key;
-    entry->var = VAR_VALUE(constant, value);
     return new_key;
+}
+
+bool hash_table_set(HashTable* table, ObjString* key, Value value)
+{
+    Entry* entry = find_entry(table->entries, table->capacity, key);
+    if(entry->key == NULL || entry->var.constant)
+    {
+        return false;
+    }
+    entry->var.value = value;
+    return true;
 }
 
 bool hash_table_get(HashTable* table, ObjString* key, Value* value)
@@ -137,7 +148,7 @@ void copy_hash_table(HashTable* from, HashTable* to)
         Entry* entry = from->entries + i;
         if(entry->key != NULL)
         {
-            hash_table_set(to, entry->key, entry->var.constant, entry->var.value);
+            hash_table_insert(to, entry->key, entry->var.constant, entry->var.value);
         }
     }
 }
@@ -167,4 +178,19 @@ ObjString* hash_table_find_str(HashTable* table, const char* chars, size_t len, 
         index = comp_next_index(index, &add_on, table->capacity);
         add_on++;
     }
+}
+
+
+uint8_t hash_table_is_const(HashTable* table, ObjString* key)
+{
+    if(table->count == 0)
+    {
+        return 0;
+    }
+    Entry* entry = find_entry(table->entries, table->capacity, key);
+    if(entry->key == NULL)
+    {
+        return 0;
+    }
+    return entry->var.constant == true ? 2 : 1;
 }

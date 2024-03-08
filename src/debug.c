@@ -206,6 +206,22 @@ size_t disassemble_inst(Chunk* chunk, size_t offset)
         {
             return simple_inst("OP_GET_GLOBAL_LONG", offset);
         }
+        case OP_SET_GLOBAL_BYTE:
+        {
+            return simple_inst("OP_SET_GLOBAL_BYTE", offset);
+        }
+        case OP_SET_GLOBAL_SHORT:
+        {
+            return simple_inst("OP_SET_GLOBAL_SHORT", offset);
+        }
+        case OP_SET_GLOBAL_WORD:
+        {
+            return simple_inst("OP_SET_GLOBAL_WORD", offset);
+        }
+        case OP_SET_GLOBAL_LONG:
+        {
+            return simple_inst("OP_SET_GLOBAL_LONG", offset);
+        }
         default:
         {
             printf("Unknown opcode %d\n", inst);

@@ -378,7 +378,7 @@ typedef enum {
     PREC_PRIMARY,
 } Precedence;
 
-typedef void(*ParseFn)();
+typedef void(*ParseFn)(bool assignable);
 
 typedef struct {
     ParseFn prefix;
@@ -544,16 +544,21 @@ static void parse_precedence(Precedence precedence)
         error("Expected expression");
         return;
     }
-    prefix_rule();
+    bool assignable = precedence <= PREC_ASSIGNMENT;
+    prefix_rule(assignable);
     while(precedence <= get_rule(parser.current.type)->prec)
     {
         advance();
         ParseFn infix_rule = get_rule(parser.previous.type)->infix;
-        infix_rule();
+        infix_rule(assignable);
+    }
+    if(assignable && match(TOKEN_EQL))
+    {
+        error("Invalid assignment target");
     }
 }
 
-static void binary()
+static void binary(bool assignable)
 {
     TokenType oper_type = parser.previous.type;
     ParseRule* rule = get_rule(oper_type);
@@ -653,7 +658,7 @@ static void binary()
     }
 }
 
-static void unary()
+static void unary(bool assignable)
 {
     TokenType oper_type = parser.previous.type;
     parse_precedence(PREC_UNARY);
@@ -681,13 +686,13 @@ static void unary()
     }
 }
 
-static void grouping()
+static void grouping(bool assignable)
 {
     expression();
     consume(TOKEN_RIGHT_PAREN, "Expect ')' after expression");
 }
 
-static void number()
+static void number(bool assignable)
 {
     switch(parser.previous.type)
     {
@@ -754,7 +759,7 @@ static void number()
     }
 }
 
-static void literal()
+static void literal(bool assignable)
 {
     switch(parser.previous.type)
     {
@@ -781,7 +786,7 @@ static void literal()
     }
 }
 
-static void cast()
+static void cast(bool assignable)
 {
     TokenType type = parser.previous.type;
     consume(TOKEN_LEFT_PAREN, "Expect '(' after cast");
@@ -818,7 +823,7 @@ static void cast()
 }
 
 // TOKEN_STR_START ((TOKEN_INTERP_START expr TOKEN_INTERP_END) | TOKEN_STR_BODY)* TOKEN_STR_END
-static void string()
+static void string(bool assignable)
 {
     advance();
     bool first = true;
@@ -860,15 +865,23 @@ static void string()
 
 static Value ident_constant(Token* name);
 
-static void named_variable(Token name)
+static void named_variable(Token name, bool assignable)
 {
     Value arg = ident_constant(&name);
-    emit_get_var(arg);
+    if(assignable && match(TOKEN_EQL))
+    {
+        expression();
+        emit_set_var(arg);
+    }
+    else
+    {
+        emit_get_var(arg);    
+    }
 }
 
-static void variable()
+static void variable(bool assignable)
 {
-    named_variable(parser.previous);
+    named_variable(parser.previous, assignable);
 }
 
 static void expression()
