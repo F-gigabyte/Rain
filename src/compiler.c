@@ -6,6 +6,8 @@
 #include <errno.h>
 #include <object.h>
 #include <convert.h>
+#include <rain_memory.h>
+#include <string.h>
 
 #ifdef DEBUG_PRINT_CODE
 #include <debug.h>
@@ -386,7 +388,21 @@ typedef struct {
     Precedence prec;
 } ParseRule;
 
+typedef struct {
+    Token name;
+    bool constant;
+    size_t depth;
+} Local;
+
+typedef struct {
+    Local* locals;
+    size_t local_size;
+    size_t local_capacity;
+    size_t scope_depth;
+} Compiler;
+
 Parser parser;
+Compiler* current = NULL;
 Chunk* compiling_chunk;
 
 ParseRule rules[];
@@ -431,6 +447,15 @@ static void error(const char* msg)
 static void error_at_current(const char* msg)
 {
     error_at(&parser.current, msg);
+}
+
+static void init_compiler(Compiler* compiler)
+{
+    compiler->local_size = 0;
+    compiler->local_capacity = 0;
+    compiler->locals = NULL;
+    compiler->scope_depth = 0;
+    current = compiler;
 }
 
 static void advance()
@@ -889,6 +914,30 @@ static void expression()
     parse_precedence(PREC_ASSIGNMENT);
 }
 
+static void block()
+{
+    while(!check(TOKEN_RIGHT_BRACE) && !check(TOKEN_EOF))
+    {
+        declaration();
+    }
+    consume(TOKEN_RIGHT_BRACE, "Expect '}' after block");
+}
+
+static void begin_scope()
+{
+    current->scope_depth++;
+}
+
+static void end_scope()
+{
+    current->scope_depth--;
+    while(current->local_size > 0 && current->locals[current->local_size - 1].depth > current->scope_depth + 1)
+    {
+        emit_inst(OP_POP);
+        current->local_size--;
+    }
+}
+
 static void synchronise()
 {
     parser.panic_mode = false;
@@ -947,6 +996,12 @@ static void statement()
     {
         print_statement();
     }
+    else if(match(TOKEN_LEFT_BRACE))
+    {
+        begin_scope();
+        block();
+        end_scope();
+    }
     else
     {
         expression_statement();
@@ -958,9 +1013,53 @@ static Value ident_constant(Token* name)
     return OBJ_VAL((Obj*)copy_str(name->start, name->len));
 }
 
-static Value parse_variable(const char* error_msg)
+static bool ident_equal(Token* a, Token* b)
+{
+    if(a->len != b->len)
+    {
+        return false;
+    }
+    return memcmp(a->start, b->start, a->len) == 0;
+}
+
+static void add_local(Token name, bool constant)
+{
+    if(current->local_capacity < current->local_size + 1)
+    {
+        size_t next_cap = GROW_CAPACITY(current->local_capacity);
+        Local* new_locals = GROW_ARRAY(Local, current->locals, current->local_capacity, next_cap);
+        current->local_capacity = next_cap;
+        current->locals = new_locals;
+    }
+    current->locals[current->local_size] = (Local){.constant = constant, .name = name, .depth = current->scope_depth + 1}; 
+    current->local_size++;
+}
+
+static Value parse_variable(const char* error_msg, bool constant)
 {
     consume(TOKEN_IDENT, error_msg);
+    if(current->scope_depth > 0)
+    {
+        Token* name = &parser.previous;
+        for(size_t i = current->local_size; i > 0; i--)
+        {
+            Local* local = &current->locals[i - 1];
+            if(local->depth != 0 && local->depth < current->scope_depth + 1)
+            {
+                break;
+            }
+            if(ident_equal(name, &local->name))
+            {
+                size_t len = snprintf(NULL, 0, "Already defined variable '%*s' in this scope", (int)local->name.len, local->name.start);
+                char* buffer = ALLOCATE(char, len + 1);
+                snprintf(buffer, len + 1, "Already define variable '%*s' in this scope", (int)local->name.len, local->name.start);
+                error(buffer);
+                FREE(char, buffer);
+            }
+        }
+        add_local(*name, constant);
+        return NULL_VAL;
+    }
     return ident_constant(&parser.previous);
 }
 
@@ -972,7 +1071,7 @@ static void define_variable(Value name, bool constant)
 
 static void var_declaration(bool constant)
 {
-    Value name = parse_variable("Expect variable name");
+    Value name = parse_variable("Expect variable name", constant);
     if(match(TOKEN_EQL))
     {
         expression();
@@ -982,7 +1081,10 @@ static void var_declaration(bool constant)
         emit_inst(OP_NULL);
     }
     consume(TOKEN_SEMICOLON, "Expect ';' after variable declaration");
-    define_variable(name, constant);
+    if(current->scope_depth == 0)
+    {
+        define_variable(name, constant);
+    }
 }
 
 static void declaration()
@@ -1093,7 +1195,9 @@ ParseRule rules[] = {
 bool compile(const char* src, Chunk* chunk)
 {
     init_scanner(src);
-
+    
+    Compiler compiler;
+    init_compiler(&compiler);
     compiling_chunk = chunk;
 
     parser.had_error = false;
