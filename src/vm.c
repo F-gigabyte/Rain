@@ -61,11 +61,18 @@ static void concatenate()
 }
 
 #define READ_INST() (*(vm.ip++))
-static Value read_const(size_t offset_size)
+
+static size_t read_inst_index(size_t offset_size)
 {
     size_t offset = 0;
     size_t index = read_chunk_const(vm.ip, &offset, offset_size);
     vm.ip += offset;
+    return index;
+}
+
+static Value read_const(size_t offset_size)
+{
+    size_t index = read_inst_index(offset_size);
     return vm.chunk->consts.values[index];
 }
 #define READ_STRING(offset_size) AS_STRING(read_const(offset_size))
@@ -947,6 +954,54 @@ static InterpretResult run()
                         return INTERPRET_RUNTIME_ERROR;
                     }
                 }
+                break;
+            }
+            case OP_GET_LOCAL_BYTE:
+            {
+                size_t slot = read_inst_index(1);
+                push(vm.stack[slot]);
+                break;
+            }
+            case OP_GET_LOCAL_SHORT:
+            {
+                size_t slot = read_inst_index(2);
+                push(vm.stack[slot]);
+                break;
+            }
+            case OP_GET_LOCAL_WORD:
+            {
+                size_t slot = read_inst_index(4);
+                push(vm.stack[slot]);
+                break;
+            }
+            case OP_GET_LOCAL_LONG:
+            {
+                size_t slot = read_inst_index(8);
+                push(vm.stack[slot]);
+                break;
+            }
+            case OP_SET_LOCAL_BYTE:
+            {
+                size_t slot = read_inst_index(1);
+                vm.stack[slot] = peek(0);
+                break;
+            }
+            case OP_SET_LOCAL_SHORT:
+            {
+                size_t slot = read_inst_index(2);
+                vm.stack[slot] = peek(0);
+                break;
+            }
+            case OP_SET_LOCAL_WORD:
+            {
+                size_t slot = read_inst_index(4);
+                vm.stack[slot] = peek(0);
+                break;
+            }
+            case OP_SET_LOCAL_LONG:
+            {
+                size_t slot = read_inst_index(8);
+                vm.stack[slot] = peek(0);
                 break;
             }
             default:

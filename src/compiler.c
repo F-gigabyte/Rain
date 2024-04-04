@@ -541,14 +541,28 @@ static void emit_var(Value value)
     write_chunk_var(current_chunk(), make_const(value), parser.previous.line);
 }
 
-static void emit_get_var(Value value)
+static void emit_get_var(Value value, bool global)
 {
-    write_chunk_get_var(current_chunk(), make_const(value), parser.previous.line);
+    if(global)
+    {
+        write_chunk_get_global_var(current_chunk(), make_const(value), parser.previous.line);
+    }
+    else
+    {
+        write_chunk_get_local_var(current_chunk(), (size_t)AS_INT(value), parser.previous.line);
+    }
 }
 
-static void emit_set_var(Value value)
+static void emit_set_var(Value value, bool global)
 {
-    write_chunk_set_var(current_chunk(), make_const(value), parser.previous.line);
+    if(global)
+    {
+        write_chunk_set_global_var(current_chunk(), make_const(value), parser.previous.line);
+    }
+    else
+    {
+        write_chunk_set_local_var(current_chunk(), (size_t)AS_INT(value), parser.previous.line);
+    }
 }
 
 static void expression();
@@ -889,19 +903,43 @@ static void string(bool assignable)
 }
 
 static Value ident_constant(Token* name);
+static Value resolve_local(Compiler* compiler, Token* name);
 
 static void named_variable(Token name, bool assignable)
 {
-    Value arg = ident_constant(&name);
-    if(assignable && match(TOKEN_EQL))
+    bool global = false;
+    bool constant = false;
+    Value arg = resolve_local(current, &name);
+    if(arg.type == VAL_NULL)
     {
-        expression();
-        emit_set_var(arg);
+        global = true;
+        arg = ident_constant(&name);
     }
     else
     {
-        emit_get_var(arg);    
+        size_t index = (size_t)AS_INT(arg);
+        if(current->locals[index].constant)
+        {
+            constant = true;
+        }
     }
+    if(assignable && match(TOKEN_EQL))
+    {
+        expression();
+        emit_set_var(arg, global);
+        if(constant)
+        {
+            size_t len = snprintf(NULL, 0, "Assigning to constant local variable '%*s'", (int)name.len, name.start);
+            char* buffer = ALLOCATE(char, len + 1);
+            snprintf(buffer, len + 1, "Assigning to constant local variable '%*s'", (int)name.len, name.start);
+            error(buffer);
+            FREE(char, buffer);
+        }
+    }
+    else
+    {
+        emit_get_var(arg, global);
+    }    
 }
 
 static void variable(bool assignable)
@@ -1022,6 +1060,23 @@ static bool ident_equal(Token* a, Token* b)
     return memcmp(a->start, b->start, a->len) == 0;
 }
 
+static Value resolve_local(Compiler* compiler, Token* name)
+{
+    for(size_t i = compiler->local_size - 1; i < compiler->local_size; i--)
+    {
+        Local* local = &compiler->locals[i];
+        if(ident_equal(name, &local->name))
+        {
+            if(local->depth == 0)
+            {
+                error("Can't read local variable in it's own initialiser");
+            }
+            return INT_VAL((int64_t)i);
+        }
+    }
+    return NULL_VAL;
+}
+
 static void add_local(Token name, bool constant)
 {
     if(current->local_capacity < current->local_size + 1)
@@ -1031,7 +1086,7 @@ static void add_local(Token name, bool constant)
         current->local_capacity = next_cap;
         current->locals = new_locals;
     }
-    current->locals[current->local_size] = (Local){.constant = constant, .name = name, .depth = current->scope_depth + 1}; 
+    current->locals[current->local_size] = (Local){.constant = constant, .name = name, .depth = 0}; 
     current->local_size++;
 }
 
@@ -1069,6 +1124,11 @@ static void define_variable(Value name, bool constant)
     emit_var(name);
 }
 
+static void mark_inititialised()
+{
+    current->locals[current->local_size - 1].depth = current->scope_depth + 1;
+}
+
 static void var_declaration(bool constant)
 {
     Value name = parse_variable("Expect variable name", constant);
@@ -1084,6 +1144,10 @@ static void var_declaration(bool constant)
     if(current->scope_depth == 0)
     {
         define_variable(name, constant);
+    }
+    else
+    {
+        mark_inititialised();
     }
 }
 

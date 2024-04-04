@@ -84,14 +84,24 @@ void write_chunk_var(Chunk* chunk, size_t const_index, size_t line)
 }
 
 
-void write_chunk_get_var(Chunk* chunk, size_t const_index, size_t line)
+void write_chunk_get_global_var(Chunk* chunk, size_t const_index, size_t line)
 {
     write_chunk_const_impl(chunk, const_index, line, OP_GET_GLOBAL_BYTE, OP_GET_GLOBAL_SHORT, OP_GET_GLOBAL_WORD, OP_GET_GLOBAL_LONG);
 }
 
-void write_chunk_set_var(Chunk* chunk, size_t const_index, size_t line)
+void write_chunk_set_global_var(Chunk* chunk, size_t const_index, size_t line)
 {
     write_chunk_const_impl(chunk, const_index, line, OP_SET_GLOBAL_BYTE, OP_SET_GLOBAL_SHORT, OP_SET_GLOBAL_WORD, OP_SET_GLOBAL_LONG);
+}
+
+void write_chunk_get_local_var(Chunk* chunk, size_t const_index, size_t line)
+{
+    write_chunk_const_impl(chunk, const_index, line, OP_GET_LOCAL_BYTE, OP_GET_LOCAL_SHORT, OP_GET_LOCAL_WORD, OP_GET_LOCAL_LONG);
+}
+
+void write_chunk_set_local_var(Chunk* chunk, size_t const_index, size_t line)
+{
+    write_chunk_const_impl(chunk, const_index, line, OP_SET_LOCAL_BYTE, OP_SET_LOCAL_SHORT, OP_SET_LOCAL_WORD, OP_SET_LOCAL_LONG);
 }
 
 size_t read_chunk_const(inst_type* inst, size_t* offset, size_t off_size)

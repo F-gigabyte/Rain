@@ -52,6 +52,14 @@ typedef enum
     OP_SET_GLOBAL_SHORT,
     OP_SET_GLOBAL_WORD,
     OP_SET_GLOBAL_LONG,
+    OP_GET_LOCAL_BYTE,
+    OP_GET_LOCAL_SHORT,
+    OP_GET_LOCAL_WORD,
+    OP_GET_LOCAL_LONG,
+    OP_SET_LOCAL_BYTE,
+    OP_SET_LOCAL_SHORT,
+    OP_SET_LOCAL_WORD,
+    OP_SET_LOCAL_LONG,
 } Opcode;
 
 typedef struct
@@ -74,9 +82,13 @@ void write_chunk_const(Chunk* chunk, size_t const_index, size_t line);
 // writes a define global instruction to the bytecode
 void write_chunk_var(Chunk* chunk, size_t const_index, size_t line);
 // writes a get global instruction to the bytecode
-void write_chunk_get_var(Chunk* chunk, size_t const_index, size_t line);
+void write_chunk_get_global_var(Chunk* chunk, size_t const_index, size_t line);
 // writes a set global instruction to the bytecode
-void write_chunk_set_var(Chunk* chunk, size_t const_index, size_t line);
+void write_chunk_set_global_var(Chunk* chunk, size_t const_index, size_t line);
+// writes a get local instruction to the bytecode
+void write_chunk_get_local_var(Chunk* chunk, size_t const_index, size_t line);
+// writes a set local instruction to the bytecode
+void write_chunk_set_local_var(Chunk* chunk, size_t const_index, size_t line);
 // reads a constant index from the bytecode
 size_t read_chunk_const(inst_type* inst, size_t* offset, size_t off_size);
 // frees a chunk of bytecode

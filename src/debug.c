@@ -27,6 +27,14 @@ static size_t const_inst(const char* name, Chunk* chunk, size_t off_size, size_t
     return offset + inc_offset + 1;
 }
 
+static size_t index_inst(const char* name, Chunk* chunk, size_t off_size, size_t offset)
+{
+    size_t inc_offset = 0;
+    size_t constant = read_chunk_const(chunk->code + offset + 1, &inc_offset, off_size);
+    printf("%-16s %4zu\n", name, constant);
+    return offset + inc_offset + 1;
+}
+
 size_t disassemble_inst(Chunk* chunk, size_t offset)
 {
     printf("%04zu ", offset);
@@ -176,51 +184,83 @@ size_t disassemble_inst(Chunk* chunk, size_t offset)
         }
         case OP_DEFINE_GLOBAL_BYTE:
         {
-            return simple_inst("OP_DEFINE_GLOBAL_BYTE", offset);
+            return const_inst("OP_DEFINE_GLOBAL_BYTE", chunk, 1, offset);
         }
         case OP_DEFINE_GLOBAL_SHORT:
         {
-            return simple_inst("OP_DEFINE_GLOBAL_SHORT", offset);
+            return const_inst("OP_DEFINE_GLOBAL_SHORT", chunk, 2, offset);
         }
         case OP_DEFINE_GLOBAL_WORD:
         {
-            return simple_inst("OP_DEFINE_GLOBAL_WORD", offset);
+            return const_inst("OP_DEFINE_GLOBAL_WORD", chunk, 4, offset);
         }
         case OP_DEFINE_GLOBAL_LONG:
         {
-            return simple_inst("OP_DEFINE_GLOBAL_LONG", offset);
+            return const_inst("OP_DEFINE_GLOBAL_LONG", chunk, 8, offset);
         }
         case OP_GET_GLOBAL_BYTE:
         {
-            return simple_inst("OP_GET_GLOBAL_BYTE", offset);
+            return const_inst("OP_GET_GLOBAL_BYTE", chunk, 1, offset);
         }
         case OP_GET_GLOBAL_SHORT:
         {
-            return simple_inst("OP_GET_GLOBAL_SHORT", offset);
+            return const_inst("OP_GET_GLOBAL_SHORT", chunk, 2, offset);
         }
         case OP_GET_GLOBAL_WORD:
         {
-            return simple_inst("OP_GET_GLOBAL_WORD", offset);
+            return const_inst("OP_GET_GLOBAL_WORD", chunk, 4, offset);
         }
         case OP_GET_GLOBAL_LONG:
         {
-            return simple_inst("OP_GET_GLOBAL_LONG", offset);
+            return const_inst("OP_GET_GLOBAL_LONG", chunk, 8, offset);
         }
         case OP_SET_GLOBAL_BYTE:
         {
-            return simple_inst("OP_SET_GLOBAL_BYTE", offset);
+            return const_inst("OP_SET_GLOBAL_BYTE", chunk, 1, offset);
         }
         case OP_SET_GLOBAL_SHORT:
         {
-            return simple_inst("OP_SET_GLOBAL_SHORT", offset);
+            return const_inst("OP_SET_GLOBAL_SHORT", chunk, 2, offset);
         }
         case OP_SET_GLOBAL_WORD:
         {
-            return simple_inst("OP_SET_GLOBAL_WORD", offset);
+            return const_inst("OP_SET_GLOBAL_WORD", chunk, 4, offset);
         }
         case OP_SET_GLOBAL_LONG:
         {
-            return simple_inst("OP_SET_GLOBAL_LONG", offset);
+            return const_inst("OP_SET_GLOBAL_LONG", chunk, 8, offset);
+        }
+        case OP_GET_LOCAL_BYTE:
+        {
+            return index_inst("OP_GET_LOCAL_BYTE", chunk, 1, offset);
+        }
+        case OP_GET_LOCAL_SHORT:
+        {
+            return index_inst("OP_GET_LOCAL_SHORT", chunk, 2, offset);
+        }
+        case OP_GET_LOCAL_WORD:
+        {
+            return index_inst("OP_GET_LOCAL_WORD", chunk, 4, offset);
+        }
+        case OP_GET_LOCAL_LONG:
+        {
+            return index_inst("OP_GET_LOCAL_LONG", chunk, 8, offset);
+        }
+        case OP_SET_LOCAL_BYTE:
+        {
+            return index_inst("OP_GET_LOCAL_BYTE", chunk, 1, offset);
+        }
+        case OP_SET_LOCAL_SHORT:
+        {
+            return index_inst("OP_GET_LOCAL_SHORT", chunk, 2, offset);
+        }
+        case OP_SET_LOCAL_WORD:
+        {
+            return index_inst("OP_GET_LOCAL_WORD", chunk, 4, offset);
+        }
+        case OP_SET_LOCAL_LONG:
+        {
+            return index_inst("OP_GET_LOCAL_LONG", chunk, 8, offset);
         }
         default:
         {

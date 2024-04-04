@@ -134,9 +134,15 @@ static bool is_oct_digit(ScannerChar c)
     return c >= '0' && c <= '7';
 }
 
+static bool is_letter(ScannerChar c)
+{
+    return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c == 0x404) || (c >= 0x406 && c <= 0x407) || (c >= 0x410 && c <= 0x429) || (c == 0x42c) || (c >= 0x42e && c <= 0x449)
+        || (c == 0x44c) || (c >= 0x44e && c <= 0x44f) || (c == 0x454) || (c >= 0x456 && c <= 0x457) || (c >= 0x490 && c <= 0x491);
+}
+
 static bool is_alpha(ScannerChar c)
 {
-    return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || c == '_';
+    return is_letter(c) || c == '_';
 }
 
 static Token number(ScannerChar start)
