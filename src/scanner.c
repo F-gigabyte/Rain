@@ -121,7 +121,7 @@ static bool is_digit(ScannerChar c)
 
 static bool is_hex_digit(ScannerChar c)
 {
-    return is_digit(c) || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F');
+    return is_digit(c) || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F') || (c >= 0x430 && c <= 0x434) || c == 0x491;
 }
 
 static bool is_bin_digit(ScannerChar c)

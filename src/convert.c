@@ -43,12 +43,12 @@ bool str_to_int(int64_t* res, const char* str, size_t len)
                     // в
                     case 0x432:
                     {
-                        return str_bin_to_int(res, str + 3, len - 3);
+                        return str_oct_to_int(res, str + 3, len - 3);
                     }
                     // д
                     case 0x434:
                     {
-                        return str_oct_to_int(res, str + 3, len - 3);
+                        return str_bin_to_int(res, str + 3, len - 3);
                     }
                     default:
                     {
@@ -76,9 +76,9 @@ static bool dec_digit(char c)
     return '0' <= c && c <= '9';
 }
 
-static bool hex_digit(char c)
+static bool hex_digit(uint32_t c)
 {
-    return ('0' <= c && c <= '9') || ('a' <= c && c <= 'f');
+    return ('0' <= c && c <= '9') || ('a' <= c && c <= 'f') || (0x430 <= c && c <= 0x434) || c == 0x491;
 }
 
 /*
@@ -130,25 +130,49 @@ bool str_dec_to_int(int64_t* res, const char* str, size_t len)
 
 bool str_hex_to_int(int64_t* res, const char* str, size_t len)
 {
-    if(len > 16 || len == 0)
+    if(len > 32 || len == 0)
     {
         return false;
     }
     uint64_t mag = 0;
-    for(size_t i = 0; i < len; i++)
+    size_t digits = 0;
+    for(size_t i = 0; i < len;)
     {
-        if(!hex_digit(str[i]))
+        uint8_t eaten = 0;
+        uint32_t letter = decode_utf8_char(str + i, &eaten, len - i);
+        if(!hex_digit(letter))
         {
             return false;
         }
-        if(!dec_digit(str[i]))
+        if(letter < 0x80 && !dec_digit((char)letter))
         {
-            mag = mag * 16 + (str[i] - 'a');    
+            mag = mag * 16 + (letter - 'a');    
+        }
+        else if(letter < 0x80)
+        {
+            mag = mag * 16 + (letter - '0');
         }
         else
         {
-            mag = mag * 16 + (str[i] - '0');
+            if(letter < 0x434)
+            {
+                mag = mag * 16 + (letter - 0x430 + 10);
+            }
+            else if(letter == 0x491)
+            {
+                mag = mag * 16 + 14;
+            }
+            else
+            {
+                mag = mag * 16 + 15;
+            }
         }
+        digits++;
+        i += eaten;
+    }
+    if(digits > 16)
+    {
+        return false;
     }
     *res = (int64_t)mag;
     return true;
