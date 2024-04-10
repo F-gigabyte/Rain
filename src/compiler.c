@@ -746,6 +746,7 @@ static void number(bool assignable)
             emit_const(INT_VAL(value));
             break;
         }
+        // need to take unicode into account -> 2 characters != 2 bytes
         case TOKEN_INT_HEX:
         {
             int64_t value = 0;

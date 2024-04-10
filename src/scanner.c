@@ -147,7 +147,8 @@ static bool is_alpha(ScannerChar c)
 
 static Token number(ScannerChar start)
 {
-    if(start == '0' && peek() == 'x' && is_hex_digit(peek_next()))
+    // 0x or 0ш
+    if(start == '0' && (peek() == 'x' || peek() == 0x448) && is_hex_digit(peek_next()))
     {
         advance();
         advance();
@@ -157,7 +158,8 @@ static Token number(ScannerChar start)
         }
         return make_token(TOKEN_INT_HEX);
     }
-    else if(start == '0' && peek() == 'b' && is_bin_digit(peek_next()))
+    // 0b or 0д
+    else if(start == '0' && (peek() == 'b' || peek() == 0x434) && is_bin_digit(peek_next()))
     {
         advance();
         advance();
@@ -167,7 +169,8 @@ static Token number(ScannerChar start)
         }
         return make_token(TOKEN_INT_BIN);
     }
-    else if(start == '0' && peek() == 'o' && is_oct_digit(peek_next()))
+    // 0o or 0в
+    else if(start == '0' && (peek() == 'o' || peek() == 0x432) && is_oct_digit(peek_next()))
     {
         advance();
         advance();
