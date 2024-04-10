@@ -78,7 +78,7 @@ static bool dec_digit(char c)
 
 static bool hex_digit(uint32_t c)
 {
-    return ('0' <= c && c <= '9') || ('a' <= c && c <= 'f') || (0x430 <= c && c <= 0x434) || c == 0x491;
+    return ('0' <= c && c <= '9') || ('a' <= c && c <= 'f') || ('A' <=c && c <= 'F') || (0x430 <= c && c <= 0x434) || (0x410 <= c && c <= 0x414) || c == 0x491 || c == 0x490;
 }
 
 /*
@@ -144,28 +144,33 @@ bool str_hex_to_int(int64_t* res, const char* str, size_t len)
         {
             return false;
         }
-        if(letter < 0x80 && !dec_digit((char)letter))
+        if(letter <= '9')
         {
-            mag = mag * 16 + (letter - 'a');    
+            mag = mag * 16 + (letter - '0'); 
         }
-        else if(letter < 0x80)
+        else if(letter <= 'F')
         {
-            mag = mag * 16 + (letter - '0');
+            mag = mag * 16 + (letter - 'A') + 10;
+        }
+        else if(letter <= 'f')
+        {
+            mag = mag * 16 + (letter - 'a') + 10;
+        }
+        else if(letter == 0x414 || letter == 0x434)
+        {
+            mag = mag * 16 + 15;
+        }
+        else if(letter <= 0x413)
+        {
+            mag = mag * 16 + (letter - 0x410) + 10;
+        }
+        else if(letter <= 0x433)
+        {
+            mag = mag * 16 + (letter - 0x430) + 10;
         }
         else
         {
-            if(letter < 0x434)
-            {
-                mag = mag * 16 + (letter - 0x430 + 10);
-            }
-            else if(letter == 0x491)
-            {
-                mag = mag * 16 + 14;
-            }
-            else
-            {
-                mag = mag * 16 + 15;
-            }
+            mag = mag * 16 + 14;
         }
         digits++;
         i += eaten;
