@@ -736,43 +736,12 @@ static void number(bool assignable)
     switch(parser.previous.type)
     {
         case TOKEN_INT:
-        {
-            int64_t value = 0;
-            if(!str_dec_to_int(&value, parser.previous.start, parser.previous.len))
-            {
-                error("Integer is too large");
-                return;
-            }
-            emit_const(INT_VAL(value));
-            break;
-        }
-        // need to take unicode into account -> 2 characters != 2 bytes
         case TOKEN_INT_HEX:
-        {
-            int64_t value = 0;
-            if(!str_hex_to_int(&value, parser.previous.start + 2, parser.previous.len - 2))
-            {
-                error("Integer is too large");
-                return;
-            }
-            emit_const(INT_VAL(value));
-            break;
-        }
         case TOKEN_INT_BIN:
-        {
-            int64_t value = 0;
-            if(!str_bin_to_int(&value, parser.previous.start + 2, parser.previous.len - 2))
-            {
-                error("Integer is too large");
-                return;
-            }
-            emit_const(INT_VAL(value));
-            break;
-        }
         case TOKEN_INT_OCT:
         {
             int64_t value = 0;
-            if(!str_oct_to_int(&value, parser.previous.start + 2, parser.previous.len - 2))
+            if(!str_to_int(&value, parser.previous.start, parser.previous.len))
             {
                 error("Integer is too large");
                 return;

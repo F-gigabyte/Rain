@@ -3,6 +3,7 @@
 #include <ryu/ryu_parse.h>
 #include <ryu/ryu.h>
 #include <rain_memory.h>
+#include <utf8.h>
 
 bool str_to_int(int64_t* res, const char* str, size_t len)
 {
@@ -27,6 +28,32 @@ bool str_to_int(int64_t* res, const char* str, size_t len)
                 default:
                 {
                     break;
+                }
+            }
+            if(len > 3)
+            {
+                uint32_t letter = decode_utf8_char(str + 1, NULL, len - 1);
+                switch(letter)
+                {
+                    // ш
+                    case 0x448:
+                    {
+                        return str_hex_to_int(res, str + 3, len - 3);
+                    }
+                    // в
+                    case 0x432:
+                    {
+                        return str_bin_to_int(res, str + 3, len - 3);
+                    }
+                    // д
+                    case 0x434:
+                    {
+                        return str_oct_to_int(res, str + 3, len - 3);
+                    }
+                    default:
+                    {
+                        break;
+                    }
                 }
             }
         }

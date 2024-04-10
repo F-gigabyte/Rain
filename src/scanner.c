@@ -76,16 +76,16 @@ static Token error_token(const char* msg)
 static ScannerChar advance()
 {
     uint8_t consumed = 0;
-    ScannerChar next_char = decode_utf8_char(scanner.current, &consumed);
+    ScannerChar next_char = decode_utf8_char(scanner.current, &consumed, 0);
     scanner.current += consumed;
-    scanner.current_char = decode_utf8_char(scanner.current, &consumed);
+    scanner.current_char = decode_utf8_char(scanner.current, &consumed, 0);
     if(is_at_end())
     {
         scanner.next_char = 0;
     }
     else
     {
-        scanner.next_char = decode_utf8_char(scanner.current + consumed, NULL);
+        scanner.next_char = decode_utf8_char(scanner.current + consumed, NULL, 0);
     }
     return next_char;
 }
@@ -148,7 +148,7 @@ static bool is_alpha(ScannerChar c)
 static Token number(ScannerChar start)
 {
     // 0x or 0ш
-    if(start == '0' && (peek() == 'x' || peek() == 0x448) && is_hex_digit(peek_next()))
+    if(start == '0' && (peek() == 'x' || peek() == ord("ш")) && is_hex_digit(peek_next()))
     {
         advance();
         advance();
@@ -159,7 +159,7 @@ static Token number(ScannerChar start)
         return make_token(TOKEN_INT_HEX);
     }
     // 0b or 0д
-    else if(start == '0' && (peek() == 'b' || peek() == 0x434) && is_bin_digit(peek_next()))
+    else if(start == '0' && (peek() == 'b' || peek() == ord("д")) && is_bin_digit(peek_next()))
     {
         advance();
         advance();
@@ -170,7 +170,7 @@ static Token number(ScannerChar start)
         return make_token(TOKEN_INT_BIN);
     }
     // 0o or 0в
-    else if(start == '0' && (peek() == 'o' || peek() == 0x432) && is_oct_digit(peek_next()))
+    else if(start == '0' && (peek() == 'o' || peek() == ord("в")) && is_oct_digit(peek_next()))
     {
         advance();
         advance();
