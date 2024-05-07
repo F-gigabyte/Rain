@@ -121,7 +121,7 @@ static bool is_digit(ScannerChar c)
 
 static bool is_hex_digit(ScannerChar c)
 {
-    return is_digit(c) || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F') || (c >= 0x430 && c <= 0x434) || (c >= 0x410 && c <= 0x414) || c == 0x491 || c == 0x490;
+    return is_digit(c) || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F') || (c >= L'а' && c <= L'д') || (c >= L'А' && c <= L'Д') || c == L'Ґ' || c == L'ґ';
 }
 
 static bool is_bin_digit(ScannerChar c)
@@ -136,8 +136,8 @@ static bool is_oct_digit(ScannerChar c)
 
 static bool is_letter(ScannerChar c)
 {
-    return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c == 0x404) || (c >= 0x406 && c <= 0x407) || (c >= 0x410 && c <= 0x429) || (c == 0x42c) || (c >= 0x42e && c <= 0x449)
-        || (c == 0x44c) || (c >= 0x44e && c <= 0x44f) || (c == 0x454) || (c >= 0x456 && c <= 0x457) || (c >= 0x490 && c <= 0x491);
+    return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c == L'Є') || (c >= L'І' && c <= L'Ї') || (c >= L'А' && c <= L'Щ') || (c == L'Ь') || (c >= L'Ю' && c <= L'щ')
+        || (c == L'ь') || (c >= L'ю' && c <= L'я') || (c == L'є') || (c >= L'і' && c <= L'ї') || (c >= L'Ґ' && c <= L'ґ');
 }
 
 static bool is_alpha(ScannerChar c)
@@ -148,7 +148,7 @@ static bool is_alpha(ScannerChar c)
 static Token number(ScannerChar start)
 {
     // 0x or 0ш
-    if(start == '0' && (peek() == 'x' || peek() == ord("ш")) && is_hex_digit(peek_next()))
+    if(start == '0' && (peek() == 'x' || peek() == L'ш') && is_hex_digit(peek_next()))
     {
         advance();
         advance();
@@ -159,7 +159,7 @@ static Token number(ScannerChar start)
         return make_token(TOKEN_INT_HEX);
     }
     // 0b or 0д
-    else if(start == '0' && (peek() == 'b' || peek() == ord("д")) && is_bin_digit(peek_next()))
+    else if(start == '0' && (peek() == 'b' || peek() == L'д') && is_bin_digit(peek_next()))
     {
         advance();
         advance();
@@ -170,7 +170,7 @@ static Token number(ScannerChar start)
         return make_token(TOKEN_INT_BIN);
     }
     // 0o or 0в
-    else if(start == '0' && (peek() == 'o' || peek() == ord("в")) && is_oct_digit(peek_next()))
+    else if(start == '0' && (peek() == 'o' || peek() == L'в') && is_oct_digit(peek_next()))
     {
         advance();
         advance();

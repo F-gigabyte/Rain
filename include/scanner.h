@@ -103,7 +103,7 @@ typedef struct {
     size_t line;
 } Token;
 
-typedef uint32_t ScannerChar;
+typedef wchar_t ScannerChar;
 
 typedef enum {
     SCANNER_NORMAL,

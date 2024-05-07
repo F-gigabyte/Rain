@@ -78,7 +78,7 @@ static bool dec_digit(char c)
 
 static bool hex_digit(uint32_t c)
 {
-    return ('0' <= c && c <= '9') || ('a' <= c && c <= 'f') || ('A' <=c && c <= 'F') || (0x430 <= c && c <= 0x434) || (0x410 <= c && c <= 0x414) || c == 0x491 || c == 0x490;
+    return ('0' <= c && c <= '9') || ('a' <= c && c <= 'f') || ('A' <=c && c <= 'F') || (L'а' <= c && c <= L'д') || (L'А' <= c && c <= L'Д') || (L'Ґ' <= c && c <= L'ґ');
 }
 
 /*
@@ -139,7 +139,7 @@ bool str_hex_to_int(int64_t* res, const char* str, size_t len)
     for(size_t i = 0; i < len;)
     {
         uint8_t eaten = 0;
-        uint32_t letter = decode_utf8_char(str + i, &eaten, len - i);
+        wchar_t letter = decode_utf8_char(str + i, &eaten, len - i);
         if(!hex_digit(letter))
         {
             return false;
@@ -156,17 +156,17 @@ bool str_hex_to_int(int64_t* res, const char* str, size_t len)
         {
             mag = mag * 16 + (letter - 'a') + 10;
         }
-        else if(letter == 0x414 || letter == 0x434)
+        else if(letter ==  L'Д'|| letter == L'д')
         {
             mag = mag * 16 + 15;
         }
-        else if(letter <= 0x413)
+        else if(letter <= L'Г')
         {
-            mag = mag * 16 + (letter - 0x410) + 10;
+            mag = mag * 16 + (letter - L'А') + 10;
         }
-        else if(letter <= 0x433)
+        else if(letter <= L'г')
         {
-            mag = mag * 16 + (letter - 0x430) + 10;
+            mag = mag * 16 + (letter - L'а') + 10;
         }
         else
         {

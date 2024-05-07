@@ -7,8 +7,6 @@
 // returns 0 if the character is not utf-8 and doesn't go beyond null byte
 // if char_consumed is NULL, it isn't used
 // if len is not 0, is the maximum number of chars that can be consumed
-uint32_t decode_utf8_char(const char* letter, uint8_t* char_consumed, size_t len);
-
-uint32_t ord(const char* letter);
+wchar_t decode_utf8_char(const char* letter, uint8_t* char_consumed, size_t len);
 
 #endif

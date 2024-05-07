@@ -1,7 +1,7 @@
 #include <utf8.h>
 
 // consumes bytes of utf-8 of the form 0b10xx xxxx -> true if valid or else false
-static bool consume_middle(uint32_t* rep, const char* letter, uint8_t shift)
+static bool consume_middle(wchar_t* rep, const char* letter, uint8_t shift)
 {
     if((*letter & 0xc0) == 0x80)
     {
@@ -11,9 +11,9 @@ static bool consume_middle(uint32_t* rep, const char* letter, uint8_t shift)
     return false;
 }
 
-uint32_t decode_utf8_char(const char* letter, uint8_t* char_consumed, size_t len)
+wchar_t decode_utf8_char(const char* letter, uint8_t* char_consumed, size_t len)
 {
-    uint32_t rep = 0;
+    wchar_t rep = 0;
     len == 0 ? (len = 4) : (len = len);
     if((*letter & 0x80) == 0)
     {
@@ -68,9 +68,4 @@ uint32_t decode_utf8_char(const char* letter, uint8_t* char_consumed, size_t len
         *char_consumed = 0;
     }
     return 0;
-}
-
-uint32_t ord(const char* letter)
-{
-    return decode_utf8_char(letter, NULL, 0);
 }
