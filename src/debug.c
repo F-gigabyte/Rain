@@ -41,7 +41,14 @@ static size_t jump_inst(const char* name, int8_t sign, Chunk* chunk, size_t offs
     uint32_t jump = ((uint32_t)data[0] << 24) | ((uint32_t)data[1] << 16) | ((uint32_t)data[2] << 8) | ((uint32_t)data[3]);
     size_t i = 0;
     for(;i < sizeof(uint32_t); i += sizeof(inst_type)){}
-    printf("%-16s %4zu -> %zu\n", name, offset, offset + 1 + i + sign * jump);
+    if(sign >= 0)
+    {
+        printf("%-16s %4zu -> %zu\n", name, offset, offset + 1 + i + jump);
+    }
+    else
+    {
+        printf("%-16s %4zu -> %zu\n", name, offset, offset + 1 + i - jump);
+    }
     return offset + i + 1;
 }
 
@@ -279,6 +286,10 @@ size_t disassemble_inst(Chunk* chunk, size_t offset)
         case OP_JUMP:
         {
             return jump_inst("OP_JUMP", 1, chunk, offset);
+        }
+        case OP_LOOP:
+        {
+            return jump_inst("OP_LOOP", -1, chunk, offset);
         }
         default:
         {

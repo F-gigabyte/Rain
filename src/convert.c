@@ -253,17 +253,17 @@ char* int_to_dec_str(int64_t num)
     uint64_t mag = neg ? -num : num;
     size_t len = get_num_digits(mag, 10) + 1 + (neg ? 1 : 0);
     char* res = ALLOCATE(char, len);
+    res[len - 1] = 0;
     if(neg)
     {
         res[0] = '-';
     }
-    res[len - 1] = 0;
     char* pos = res + (len - 2);
     *pos = '0';
     while(mag > 0)
     {
-        *pos = mag + '0';
-        pos++;
+        *pos = (mag % 10) + '0';
+        pos--;
         mag /= 10;
     }
     return res;

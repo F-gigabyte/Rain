@@ -62,6 +62,7 @@ typedef enum
     OP_SET_LOCAL_LONG,
     OP_JUMP_IF_FALSE,
     OP_JUMP,
+    OP_LOOP,
 } Opcode;
 
 typedef struct

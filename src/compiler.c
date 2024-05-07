@@ -13,6 +13,8 @@
 #include <debug.h>
 #endif
 
+#define MAXOFFSET 0xffffffff
+
 #ifdef DEBUG_TOKEN_TYPES
 
 static const char* token_type_str(TokenType type)
@@ -530,11 +532,32 @@ static void patch_jump(size_t offset)
     size_t i = 0;
     for(;i < sizeof(uint32_t); i += sizeof(inst_type)){}
     size_t jump = current_chunk()->size - offset - i;
-    if(jump > 0xffffffff)
+    if(jump > MAXOFFSET)
     {
         error("Too much code to jump over");
     }
     uint8_t* data = (uint8_t*)&(current_chunk()->code[offset]);
+    data[0] = (jump >> 24) & 0xff;
+    data[1] = (jump >> 16) & 0xff;
+    data[2] = (jump >> 8) & 0xff;
+    data[3] = jump & 0xff;
+}
+
+static void emit_loop(size_t loop_start)
+{
+    emit_inst(OP_LOOP);
+    size_t offset = current_chunk()->size;
+    size_t i = 0;
+    for(;i < sizeof(uint32_t); i += sizeof(inst_type))
+    {
+        emit_inst(0x0);
+    }
+    size_t jump = current_chunk()->size - loop_start;
+    if(jump > MAXOFFSET)
+    {
+        error("Loop body too large");
+    }
+    uint8_t* data = &(current_chunk()->code[offset]);
     data[0] = (jump >> 24) & 0xff;
     data[1] = (jump >> 16) & 0xff;
     data[2] = (jump >> 8) & 0xff;
@@ -920,9 +943,85 @@ static void named_variable(Token name, bool assignable)
             constant = true;
         }
     }
-    if(assignable && match(TOKEN_EQL))
+    if(assignable && (check(TOKEN_EQL) || check(TOKEN_PLUS_EQL) || check(TOKEN_MINUS_EQL) || check(TOKEN_STAR_EQL) || check(TOKEN_SLASH_EQL) || check(TOKEN_PERC_EQL) || check(TOKEN_UP_EQL) || check(TOKEN_AMP_EQL) || check(TOKEN_LINE_EQL) || check(TOKEN_LESS_LESS_EQL) || check(TOKEN_GREATER_GREATER_EQL) || check(TOKEN_PLUS_PLUS) || check(TOKEN_MINUS_MINUS)))
     {
-        expression();
+        if(match(TOKEN_EQL))
+        {
+            expression();
+        }
+        else if(match(TOKEN_PLUS_EQL))
+        {
+            expression();
+            emit_get_var(arg, global);
+            emit_inst(OP_ADD);
+        }
+        else if(match(TOKEN_MINUS_EQL))
+        {
+            emit_get_var(arg, global);
+            expression();
+            emit_inst(OP_SUB);
+        }
+        else if(match(TOKEN_STAR_EQL))
+        {
+            expression();
+            emit_get_var(arg, global);
+            emit_inst(OP_MUL);
+        }
+        else if(match(TOKEN_SLASH_EQL))
+        {
+            emit_get_var(arg, global);
+            expression();
+            emit_inst(OP_DIV);
+        }
+        else if(match(TOKEN_PERC_EQL))
+        {
+            emit_get_var(arg, global);
+            expression();
+            emit_inst(OP_REM);
+        }
+        else if(match(TOKEN_UP_EQL))
+        {
+            expression();
+            emit_get_var(arg, global);
+            emit_inst(OP_BIT_XOR);
+        }
+        else if(match(TOKEN_AMP_EQL))
+        {
+            expression();
+            emit_get_var(arg, global);
+            emit_inst(OP_BIT_AND);
+        }
+        else if(match(TOKEN_LINE_EQL))
+        {
+            expression();
+            emit_get_var(arg, global);
+            emit_inst(OP_BIT_OR);
+        }
+        else if(match(TOKEN_LESS_LESS_EQL))
+        {
+            emit_get_var(arg, global);
+            expression();
+            emit_inst(OP_SHIFT_LEFT);
+        }
+        else if(match(TOKEN_GREATER_GREATER_EQL))
+        {
+            emit_get_var(arg, global);
+            expression();
+            emit_inst(OP_SHIFT_ARITH_RIGHT);
+            advance();
+        }
+        else if(match(TOKEN_PLUS_PLUS))
+        {
+            emit_const(INT_VAL(1));
+            emit_get_var(arg, global);
+            emit_inst(OP_ADD);
+        }
+        else
+        {
+            emit_get_var(arg, global);
+            emit_const(INT_VAL(1));
+            emit_inst(OP_SUB);
+        }
         emit_set_var(arg, global);
         if(constant)
         {
@@ -1067,6 +1166,23 @@ static void if_statement()
     patch_jump(else_jump);
 }
 
+static void while_statement()
+{
+    size_t loop_start = current_chunk()->size;
+    consume(TOKEN_LEFT_PAREN, "Expect '(' after 'while'");
+    expression();
+    consume(TOKEN_RIGHT_PAREN, "Expect ')' after condition");
+    consume(TOKEN_LEFT_BRACE, "Expect '{' after loop expression");
+    size_t exit_jump = emit_jump(OP_JUMP_IF_FALSE);
+    emit_inst(OP_POP);
+    begin_scope();
+    block();
+    end_scope();
+    emit_loop(loop_start);
+    patch_jump(exit_jump);
+    emit_inst(OP_POP);
+}
+
 static void expression_statement()
 {
     expression();
@@ -1089,6 +1205,10 @@ static void statement()
     else if(match(TOKEN_IF))
     {
         if_statement();
+    }
+    else if(match(TOKEN_WHILE))
+    {
+        while_statement();
     }
     else
     {

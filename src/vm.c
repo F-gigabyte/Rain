@@ -1031,6 +1031,12 @@ static InterpretResult run()
                 vm.ip += offset;
                 break;
             }
+            case OP_LOOP:
+            {
+                uint32_t offset = read_jump();
+                vm.ip -= offset;
+                break;
+            }
             default:
             {
                 runtime_error("Unknown instruction %u", inst);
