@@ -35,6 +35,16 @@ static size_t index_inst(const char* name, Chunk* chunk, size_t off_size, size_t
     return offset + inc_offset + 1;
 }
 
+static size_t jump_inst(const char* name, int8_t sign, Chunk* chunk, size_t offset)
+{
+    uint8_t* data = (uint8_t*)(chunk->code + offset + 1);
+    uint32_t jump = ((uint32_t)data[0] << 24) | ((uint32_t)data[1] << 16) | ((uint32_t)data[2] << 8) | ((uint32_t)data[3]);
+    size_t i = 0;
+    for(;i < sizeof(uint32_t); i += sizeof(inst_type)){}
+    printf("%-16s %4zu -> %zu\n", name, offset, offset + 1 + i + sign * jump);
+    return offset + i + 1;
+}
+
 size_t disassemble_inst(Chunk* chunk, size_t offset)
 {
     printf("%04zu ", offset);
@@ -261,6 +271,14 @@ size_t disassemble_inst(Chunk* chunk, size_t offset)
         case OP_SET_LOCAL_LONG:
         {
             return index_inst("OP_GET_LOCAL_LONG", chunk, 8, offset);
+        }
+        case OP_JUMP_IF_FALSE:
+        {
+            return jump_inst("OP_JUMP_IF_FALSE", 1, chunk, offset);
+        }
+        case OP_JUMP:
+        {
+            return jump_inst("OP_JUMP", 1, chunk, offset);
         }
         default:
         {

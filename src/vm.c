@@ -75,6 +75,18 @@ static Value read_const(size_t offset_size)
     size_t index = read_inst_index(offset_size);
     return vm.chunk->consts.values[index];
 }
+
+static uint32_t read_jump()
+{
+    uint8_t* data = (uint8_t*)vm.ip;
+    uint32_t offset = ((uint32_t)data[0] << 24) | ((uint32_t)data[1] << 16) | ((uint32_t)data[2] << 8) | (uint32_t)data[3];
+    for(size_t i = 0; i < sizeof(uint32_t); i += sizeof(inst_type))
+    {
+        vm.ip++;
+    }
+    return offset;
+}
+
 #define READ_STRING(offset_size) AS_STRING(read_const(offset_size))
 
 static InterpretResult run()
@@ -1002,6 +1014,21 @@ static InterpretResult run()
             {
                 size_t slot = read_inst_index(8);
                 vm.stack[slot] = peek(0);
+                break;
+            }
+            case OP_JUMP_IF_FALSE:
+            {
+                uint32_t offset = read_jump();
+                if(IS_BOOL(peek(0)) && AS_BOOL(peek(0)) == false)
+                {
+                    vm.ip += offset;
+                }
+                break;
+            }
+            case OP_JUMP:
+            {
+                uint32_t offset = read_jump();
+                vm.ip += offset;
                 break;
             }
             default:

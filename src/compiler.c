@@ -514,6 +514,33 @@ static void emit_return()
     emit_inst(OP_RETURN);
 }
 
+static size_t emit_jump(inst_type inst)
+{
+   emit_inst(inst);
+   size_t i = 0;
+   for(;i < sizeof(uint32_t); i += sizeof(inst_type))
+   {
+       emit_inst(0x0);
+   }
+   return current_chunk()->size - i;
+}
+
+static void patch_jump(size_t offset)
+{
+    size_t i = 0;
+    for(;i < sizeof(uint32_t); i += sizeof(inst_type)){}
+    size_t jump = current_chunk()->size - offset - i;
+    if(jump > 0xffffffff)
+    {
+        error("Too much code to jump over");
+    }
+    uint8_t* data = (uint8_t*)&(current_chunk()->code[offset]);
+    data[0] = (jump >> 24) & 0xff;
+    data[1] = (jump >> 16) & 0xff;
+    data[2] = (jump >> 8) & 0xff;
+    data[3] = jump & 0xff;
+}
+
 static void end_compiler()
 {
     emit_return();
@@ -917,6 +944,24 @@ static void variable(bool assignable)
     named_variable(parser.previous, assignable);
 }
 
+static void and_(bool assignable)
+{
+    size_t end_jump = emit_jump(OP_JUMP_IF_FALSE);
+    emit_inst(OP_POP);
+    parse_precedence(PREC_AND);
+    patch_jump(end_jump);
+}
+
+static void or_(bool assignable)
+{
+    size_t else_jump = emit_jump(OP_JUMP_IF_FALSE);
+    size_t end_jump = emit_jump(OP_JUMP);
+    patch_jump(else_jump);
+    emit_inst(OP_POP);
+    parse_precedence(PREC_OR);
+    patch_jump(end_jump);
+}
+
 static void expression()
 {
     parse_precedence(PREC_ASSIGNMENT);
@@ -991,6 +1036,37 @@ static void print_statement()
     emit_inst(OP_PRINT);
 }
 
+static void if_statement()
+{
+    consume(TOKEN_LEFT_PAREN, "Expect '(' after 'if'");
+    expression();
+    consume(TOKEN_RIGHT_PAREN, "Expect ')' after condition");
+    consume(TOKEN_LEFT_BRACE, "Expect '{' after condition expression");
+    size_t then_jump = emit_jump(OP_JUMP_IF_FALSE);
+    emit_inst(OP_POP);
+    begin_scope();
+    block();
+    end_scope();
+    size_t else_jump = emit_jump(OP_JUMP);
+    patch_jump(then_jump);
+    emit_inst(OP_POP);
+    if(match(TOKEN_ELSE))
+    {
+        if(match(TOKEN_IF))
+        {
+            if_statement();
+        }
+        else
+        {
+            consume(TOKEN_LEFT_BRACE, "Expect '{' after else");
+            begin_scope();
+            block();
+            end_scope();
+        }
+    }
+    patch_jump(else_jump);
+}
+
 static void expression_statement()
 {
     expression();
@@ -1009,6 +1085,10 @@ static void statement()
         begin_scope();
         block();
         end_scope();
+    }
+    else if(match(TOKEN_IF))
+    {
+        if_statement();
     }
     else
     {
@@ -1181,7 +1261,7 @@ ParseRule rules[] = {
     [TOKEN_PERC_EQL]                = {NULL,     NULL,   PREC_NONE},
     [TOKEN_GREATER_GREATER_EQL]     = {NULL,     NULL,   PREC_NONE},
     [TOKEN_LESS_LESS_EQL]           = {NULL,     NULL,   PREC_NONE},
-    [TOKEN_IDENT]                   = {variable,     NULL,   PREC_NONE},
+    [TOKEN_IDENT]                   = {variable, NULL,   PREC_NONE},
     [TOKEN_STR_START]               = {string,   NULL,   PREC_NONE},
     [TOKEN_STR_BODY]                = {NULL,     NULL,   PREC_NONE},
     [TOKEN_STR_END]                 = {NULL,     NULL,   PREC_NONE},
@@ -1192,7 +1272,7 @@ ParseRule rules[] = {
     [TOKEN_INT_BIN]                 = {number,   NULL,   PREC_NONE},
     [TOKEN_INT_OCT]                 = {number,   NULL,   PREC_NONE},
     [TOKEN_FLOAT]                   = {number,   NULL,   PREC_NONE},
-    [TOKEN_AND]                     = {NULL,     NULL,   PREC_NONE},
+    [TOKEN_AND]                     = {NULL,     and_,   PREC_AND},
     [TOKEN_ARRAY]                   = {NULL,     NULL,   PREC_NONE},
     [TOKEN_BOOL_CAST]               = {cast,     NULL,   PREC_NONE},
     [TOKEN_CLASS]                   = {NULL,     NULL,   PREC_NONE},
@@ -1208,7 +1288,7 @@ ParseRule rules[] = {
     [TOKEN_IMPORT]                  = {NULL,     NULL,   PREC_NONE},
     [TOKEN_NOT]                     = {unary,    NULL,   PREC_NONE},
     [TOKEN_NULL]                    = {literal,  NULL,   PREC_NONE},
-    [TOKEN_OR]                      = {NULL,     NULL,   PREC_NONE},
+    [TOKEN_OR]                      = {NULL,     or_,    PREC_OR},
     [TOKEN_OVERRIDE]                = {NULL,     NULL,   PREC_NONE},
     [TOKEN_PRINT]                   = {NULL,     NULL,   PREC_NONE},
     [TOKEN_PRIV]                    = {NULL,     NULL,   PREC_NONE},
