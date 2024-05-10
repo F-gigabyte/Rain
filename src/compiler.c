@@ -417,6 +417,8 @@ Compiler* current = NULL;
 
 Chunk* compiling_chunk;
 
+static void var_declaration(bool constant);
+
 ParseRule rules[];
 
 static Chunk* current_chunk()
@@ -534,6 +536,11 @@ static bool match(TokenType type)
 static void emit_inst(inst_type inst)
 {
     write_chunk(current_chunk(), inst, parser.previous.line);
+}
+
+static void emit_inst_line(inst_type inst, size_t line)
+{
+    write_chunk(current_chunk(), inst, line);
 }
 
 static void emit_insts(inst_type inst1, inst_type inst2)
@@ -1186,8 +1193,8 @@ static void while_statement()
     emit_inst(OP_POP);
     begin_scope();
     block();
-    end_scope();
     emit_loop(loop_start);
+    end_scope();
     patch_jump(while_jump);
     emit_inst(OP_POP);
 }
@@ -1197,6 +1204,76 @@ static void expression_statement()
     expression();
     consume(TOKEN_SEMICOLON, "Expect ';' after expression");
     emit_inst(OP_POP);
+}
+
+static void for_statement()
+{
+    begin_scope();
+    consume(TOKEN_LEFT_PAREN, "Expect '(' after 'for'");
+    if(match(TOKEN_SEMICOLON))
+    {
+
+    }
+    else if(match(TOKEN_VAR))
+    {
+        var_declaration(false);
+    }
+    else if(match(TOKEN_CONST))
+    {
+        var_declaration(true);
+    }
+    else
+    {
+        expression_statement();
+    }
+    size_t loop_start = current_chunk()->size;
+    size_t exit_jump = 0;
+    bool terminates = false;
+    if(!match(TOKEN_SEMICOLON))
+    {
+        expression();
+        consume(TOKEN_SEMICOLON, "Expect ';' after loop condition");
+        exit_jump = emit_jump(OP_JUMP_IF_FALSE_BYTE);
+        terminates = true;
+        emit_inst(OP_POP);
+    }
+    bool increments = false;
+    Chunk inc_chunk;
+    if(!match(TOKEN_RIGHT_PAREN))
+    {
+        increments = true;
+        init_chunk(&inc_chunk);
+        inc_chunk.consts = current_chunk()->consts;
+        Chunk* temp = current_chunk();
+        compiling_chunk = &inc_chunk; 
+        expression();
+        emit_inst(OP_POP);
+        compiling_chunk = temp;
+        compiling_chunk->consts = inc_chunk.consts;
+        inc_chunk.consts.values = NULL;
+        inc_chunk.consts.capacity = 0;
+        inc_chunk.consts.size = 0;
+        consume(TOKEN_RIGHT_PAREN, "Expect ')' after for clauses");
+    }
+    consume(TOKEN_LEFT_BRACE, "Expect '{' after loop expression");
+    begin_scope();
+    block();
+    end_scope();
+    if(increments)
+    {
+        for(size_t i = 0; i < inc_chunk.size; i++)
+        {
+            emit_inst(inc_chunk.code[i]);
+        }
+        free_chunk(&inc_chunk);
+    }
+    emit_loop(loop_start);
+    if(terminates)
+    {
+        patch_jump(exit_jump);
+        emit_inst(OP_POP);
+    }
+    end_scope();
 }
 
 static void statement()
@@ -1218,6 +1295,10 @@ static void statement()
     else if(match(TOKEN_WHILE))
     {
         while_statement();
+    }
+    else if(match(TOKEN_FOR))
+    {
+        for_statement();
     }
     else
     {
@@ -1439,7 +1520,6 @@ static void resolve_jump_table(Chunk* obj_chunk, Chunk* res)
 {
     for(size_t i = 0; i < current->jump_table_size; i++)
     {
-        printf("Have jump %zu to %zu\n", current->jump_table[i].from, current->jump_table[i].to);
         // foward jump
         if(current->jump_table[i].from <= current->jump_table[i].to)
         {
@@ -1455,9 +1535,7 @@ static void resolve_jump_table(Chunk* obj_chunk, Chunk* res)
                     extra_bytes += 8 / sizeof(inst_type);
                 }
             }
-            printf("extra bytes: %zu\n", extra_bytes);
             size_t jump_len = extra_bytes + current->jump_table[i].to - current->jump_table[i].from;
-            printf("estimated jump len: %zu\n", jump_len);
             if(jump_len - (1 / sizeof(inst_type)) < 0x100 && sizeof(inst_type) == 1)
             {
                 current->jump_table[i].bytes = 1;
@@ -1577,23 +1655,23 @@ static void resolve_jump_table(Chunk* obj_chunk, Chunk* res)
                 }
                 jump_len = current->jump_table[jump_index].from - current->jump_table[jump_index].to + (current->jump_table[jump_index].bytes / sizeof(inst_type)) + extra_bytes + 1;
             }
-            emit_inst(obj_chunk->code[i]);
+            size_t line = get_line_number(&obj_chunk->line_encoding, i);
+            emit_inst_line(obj_chunk->code[i], line);
             size_t offset = current_chunk()->size;
             for(size_t j = 0; j < current->jump_table[jump_index].bytes; j += sizeof(inst_type))
             {
-                emit_inst(0x0);
+                emit_inst_line(0x0, line);
             }
             uint8_t* data = (uint8_t*)(&current_chunk()->code[offset]);
             for(size_t j = current->jump_table[jump_index].bytes; j > 0; j--)
             {
                 data[j - 1] = (jump_len >> (8 * (current->jump_table[jump_index].bytes - j))) & 0xff;
             }
-            printf("Have jump %zu to %zu, jump len: %zu\n", current->jump_table[jump_index].from, current->jump_table[jump_index].to, jump_len);
             jump_index++;
         }
         else
         {
-            emit_inst(obj_chunk->code[i]);
+            emit_inst_line(obj_chunk->code[i], get_line_number(&obj_chunk->line_encoding, i));
         }
     }
 }

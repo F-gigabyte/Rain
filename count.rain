@@ -1,13 +1,9 @@
 const max = 100;
-var i = 1;
-while(i <= max)
+for(var i = 1; i <= max; i++)
 {
     print("i is {i}");
-    i ++;
-    var j = 1;
-    while(j <= max)
+    for(var j = 1; j <= max; j++)
     {
         print("j is {j}");
-        j++;
     }
 }
