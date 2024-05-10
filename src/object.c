@@ -35,7 +35,7 @@ static ObjString* allocate_str(const char* chars, size_t len)
     ObjString* str = ALLOCATE_STR(len + 1);
     str->len = len;
     memcpy(str->chars, chars, len);
-    str->chars[len + 1] = 0;
+    str->chars[len] = 0;
     str->hash = hash_str(str->chars, str->len);
     hash_table_insert(&vm.strings, str, false, NULL_VAL);
     return str;

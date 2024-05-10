@@ -13,14 +13,17 @@ bool str_to_int(int64_t* res, const char* str, size_t len)
         {
             switch(str[1])
             {
+                case 'X':
                 case 'x':
                 {
                     return str_hex_to_int(res, str + 2, len - 2);
                 }
+                case 'B':
                 case 'b':
                 {
                     return str_bin_to_int(res, str + 2, len - 2);
                 }
+                case 'O':
                 case 'o':
                 {
                     return str_oct_to_int(res, str + 2, len - 2);
@@ -36,17 +39,20 @@ bool str_to_int(int64_t* res, const char* str, size_t len)
                 switch(letter)
                 {
                     // ш
-                    case 0x448:
+                    case L'Ш':
+                    case L'ш':
                     {
                         return str_hex_to_int(res, str + 3, len - 3);
                     }
                     // в
-                    case 0x432:
+                    case L'В':
+                    case L'в':
                     {
                         return str_oct_to_int(res, str + 3, len - 3);
                     }
                     // д
-                    case 0x434:
+                    case L'Д':
+                    case L'д':
                     {
                         return str_bin_to_int(res, str + 3, len - 3);
                     }
