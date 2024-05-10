@@ -397,14 +397,24 @@ typedef struct {
 } Local;
 
 typedef struct {
+    size_t from;
+    size_t to;
+    size_t bytes;
+} JumpPair;
+
+typedef struct {
     Local* locals;
     size_t local_size;
     size_t local_capacity;
     size_t scope_depth;
+    JumpPair* jump_table;
+    size_t jump_table_size;
+    size_t jump_table_capacity;
 } Compiler;
 
 Parser parser;
 Compiler* current = NULL;
+
 Chunk* compiling_chunk;
 
 ParseRule rules[];
@@ -412,6 +422,24 @@ ParseRule rules[];
 static Chunk* current_chunk()
 {
     return compiling_chunk;
+}
+
+static size_t get_next_line()
+{
+    return current_chunk()->size + current_chunk()->start_line;
+}
+
+static void add_jump(size_t from, size_t to)
+{
+    if(current->jump_table_size >= current->jump_table_capacity)
+    {
+        size_t new_cap = GROW_CAPACITY(current->jump_table_capacity);
+        JumpPair* next_table = GROW_ARRAY(JumpPair, current->jump_table, current->jump_table_capacity, new_cap);
+        current->jump_table_capacity = new_cap;
+        current->jump_table = next_table;
+    }
+    current->jump_table[current->jump_table_size] = (JumpPair){.from = from, .to = to, .bytes = 0};
+    current->jump_table_size++;
 }
 
 static void error_at(Token* token, const char* msg)
@@ -457,6 +485,9 @@ static void init_compiler(Compiler* compiler)
     compiler->local_capacity = 0;
     compiler->locals = NULL;
     compiler->scope_depth = 0;
+    compiler->jump_table = NULL;
+    compiler->jump_table_capacity = 0;
+    compiler->jump_table_size = 0;
     current = compiler;
 }
 
@@ -516,57 +547,32 @@ static void emit_return()
     emit_inst(OP_RETURN);
 }
 
-static size_t emit_jump(inst_type inst)
+static size_t emit_jump(inst_type type)
 {
-   emit_inst(inst);
-   size_t i = 0;
-   for(;i < sizeof(uint32_t); i += sizeof(inst_type))
-   {
-       emit_inst(0x0);
-   }
-   return current_chunk()->size - i;
+    emit_inst(type);
+    size_t index = current->jump_table_size;
+    add_jump(current_chunk()->size - 1, 0xffffffff);
+    return index;
 }
 
-static void patch_jump(size_t offset)
+static void patch_jump(size_t index)
 {
-    size_t i = 0;
-    for(;i < sizeof(uint32_t); i += sizeof(inst_type)){}
-    size_t jump = current_chunk()->size - offset - i;
-    if(jump > MAXOFFSET)
-    {
-        error("Too much code to jump over");
-    }
-    uint8_t* data = (uint8_t*)&(current_chunk()->code[offset]);
-    data[0] = (jump >> 24) & 0xff;
-    data[1] = (jump >> 16) & 0xff;
-    data[2] = (jump >> 8) & 0xff;
-    data[3] = jump & 0xff;
+    current->jump_table[index].to = current_chunk()->size;
 }
 
 static void emit_loop(size_t loop_start)
 {
-    emit_inst(OP_LOOP);
-    size_t offset = current_chunk()->size;
-    size_t i = 0;
-    for(;i < sizeof(uint32_t); i += sizeof(inst_type))
-    {
-        emit_inst(0x0);
-    }
-    size_t jump = current_chunk()->size - loop_start;
-    if(jump > MAXOFFSET)
-    {
-        error("Loop body too large");
-    }
-    uint8_t* data = &(current_chunk()->code[offset]);
-    data[0] = (jump >> 24) & 0xff;
-    data[1] = (jump >> 16) & 0xff;
-    data[2] = (jump >> 8) & 0xff;
-    data[3] = jump & 0xff;
+    emit_inst(OP_JUMP_BACK_BYTE);
+    add_jump(current_chunk()->size - 1, loop_start);
 }
 
 static void end_compiler()
 {
     emit_return();
+    FREE(JumpPair, current->jump_table);
+    current->jump_table = NULL;
+    current->jump_table_capacity = 0;
+    current->jump_table_size = 0;
 #ifdef DEBUG_PRINT_CODE
     if(!parser.had_error)
     {
@@ -1045,20 +1051,18 @@ static void variable(bool assignable)
 
 static void and_(bool assignable)
 {
-    size_t end_jump = emit_jump(OP_JUMP_IF_FALSE);
+    size_t index = emit_jump(OP_JUMP_IF_FALSE_BYTE);
     emit_inst(OP_POP);
     parse_precedence(PREC_AND);
-    patch_jump(end_jump);
+    patch_jump(index);
 }
 
 static void or_(bool assignable)
 {
-    size_t else_jump = emit_jump(OP_JUMP_IF_FALSE);
-    size_t end_jump = emit_jump(OP_JUMP);
-    patch_jump(else_jump);
-    emit_inst(OP_POP);
+    size_t index = emit_jump(OP_JUMP_IF_TRUE_BYTE);
     parse_precedence(PREC_OR);
-    patch_jump(end_jump);
+    patch_jump(index);
+    emit_inst(OP_POP);
 }
 
 static void expression()
@@ -1141,16 +1145,16 @@ static void if_statement()
     expression();
     consume(TOKEN_RIGHT_PAREN, "Expect ')' after condition");
     consume(TOKEN_LEFT_BRACE, "Expect '{' after condition expression");
-    size_t then_jump = emit_jump(OP_JUMP_IF_FALSE);
+    size_t then_jump = emit_jump(OP_JUMP_IF_FALSE_BYTE);
     emit_inst(OP_POP);
     begin_scope();
     block();
     end_scope();
-    size_t else_jump = emit_jump(OP_JUMP);
-    patch_jump(then_jump);
-    emit_inst(OP_POP);
     if(match(TOKEN_ELSE))
     {
+        size_t else_jump = emit_jump(OP_JUMP_BYTE);
+        patch_jump(then_jump);
+        emit_inst(OP_POP);
         if(match(TOKEN_IF))
         {
             if_statement();
@@ -1162,8 +1166,13 @@ static void if_statement()
             block();
             end_scope();
         }
+        patch_jump(else_jump);
     }
-    patch_jump(else_jump);
+    else
+    {
+        patch_jump(then_jump);
+        emit_inst(OP_POP);
+    }
 }
 
 static void while_statement()
@@ -1173,13 +1182,13 @@ static void while_statement()
     expression();
     consume(TOKEN_RIGHT_PAREN, "Expect ')' after condition");
     consume(TOKEN_LEFT_BRACE, "Expect '{' after loop expression");
-    size_t exit_jump = emit_jump(OP_JUMP_IF_FALSE);
+    size_t while_jump = emit_jump(OP_JUMP_IF_FALSE_BYTE);
     emit_inst(OP_POP);
     begin_scope();
     block();
     end_scope();
     emit_loop(loop_start);
-    patch_jump(exit_jump);
+    patch_jump(while_jump);
     emit_inst(OP_POP);
 }
 
@@ -1426,13 +1435,178 @@ ParseRule rules[] = {
     [TOKEN_EOF]                     = {NULL,     NULL,   PREC_NONE},
 };
 
+static void resolve_jump_table(Chunk* obj_chunk, Chunk* res)
+{
+    for(size_t i = 0; i < current->jump_table_size; i++)
+    {
+        printf("Have jump %zu to %zu\n", current->jump_table[i].from, current->jump_table[i].to);
+        // foward jump
+        if(current->jump_table[i].from <= current->jump_table[i].to)
+        {
+            size_t extra_bytes = 0;
+            for(size_t j = i + 1; j < current->jump_table_size; j++)
+            {
+                if(current->jump_table[j].from >= current->jump_table[i].to)
+                {
+                    break;
+                }
+                else
+                {
+                    extra_bytes += 8 / sizeof(inst_type);
+                }
+            }
+            printf("extra bytes: %zu\n", extra_bytes);
+            size_t jump_len = extra_bytes + current->jump_table[i].to - current->jump_table[i].from;
+            printf("estimated jump len: %zu\n", jump_len);
+            if(jump_len - (1 / sizeof(inst_type)) < 0x100 && sizeof(inst_type) == 1)
+            {
+                current->jump_table[i].bytes = 1;
+            }
+            else if(jump_len - (2 / sizeof(inst_type)) < 0x10000 && sizeof(inst_type) <= 2)
+            {
+                current->jump_table[i].bytes = 2;
+            }
+            else if(jump_len - (4 / sizeof(inst_type)) < 0x100000000 && sizeof(inst_type) <= 4)
+            {
+                current->jump_table[i].bytes = 4;
+            }
+            else
+            {
+                current->jump_table[i].bytes = 8;
+            }
+        }
+        else
+        {
+            if(current->jump_table[i].to < current->jump_table[i].from)
+            {
+                size_t extra_bytes = 0;
+                for(size_t j = i; j > 0; j--)
+                {
+                    size_t index = j - 1;
+                    if(current->jump_table[index].from <= current->jump_table[i].to)
+                    {
+                        break;
+                    }
+                    else
+                    {
+                        extra_bytes += 8 / sizeof(inst_type);
+                    }
+                }
+                size_t jump_len = extra_bytes + current->jump_table[i].from - current->jump_table[i].to + 1;
+                if(jump_len + (1 / sizeof(inst_type)) < 0x100 && sizeof(inst_type) == 1)
+                {
+                    current->jump_table[i].bytes = 1;
+                }
+                else if(jump_len + (2 / sizeof(inst_type)) < 0x10000 && sizeof(inst_type) <= 2)
+                {
+                    current->jump_table[i].bytes = 2;
+                }
+                else if(jump_len + (4 / sizeof(inst_type)) < 0x100000000 && sizeof(inst_type) <= 4)
+                {
+                    current->jump_table[i].bytes = 4;
+                }
+                else
+                {
+                    current->jump_table[i].bytes = 8;
+                }
+            }
+        }
+    }
+    compiling_chunk = res;
+    res->consts = obj_chunk->consts;
+    size_t jump_index = 0;
+    for(size_t i = 0; i < obj_chunk->size; i++)
+    {
+        if(jump_index < current->jump_table_size && i == current->jump_table[jump_index].from)
+        {
+            size_t inst_inc = 0;
+            switch(current->jump_table[jump_index].bytes)
+            {
+                case (2):
+                {
+                    inst_inc = 1;
+                    break;
+                }
+                case (4):
+                {
+                    inst_inc = 2;
+                    break;
+                }
+                case (8):
+                {
+                    inst_inc = 3;
+                    break;
+                }
+                default:
+                {
+                    break;
+                }
+            }
+            obj_chunk->code[i] += inst_inc;
+            size_t jump_len = 0;
+            if(current->jump_table[jump_index].from <= current->jump_table[jump_index].to)
+            {
+                size_t extra_bytes = 0;
+                for(size_t j = jump_index + 1; j < current->jump_table_size; j++)
+                {
+                    if(current->jump_table[j].from >= current->jump_table[jump_index].to)
+                    {
+                        break;
+                    }
+                    else
+                    {
+                        extra_bytes += current->jump_table[j].bytes;
+                    }
+                }
+                jump_len = current->jump_table[jump_index].to - current->jump_table[jump_index].from - (current->jump_table[jump_index].bytes / sizeof(inst_type)) + extra_bytes;
+            }
+            else
+            {
+                size_t extra_bytes = 0;
+                for(size_t j = jump_index; j > 0; j--)
+                {
+                    size_t index = j - 1;
+                    if(current->jump_table[index].from <= current->jump_table[jump_index].to)
+                    {
+                        break;
+                    }
+                    else
+                    {
+                        extra_bytes += current->jump_table[index].bytes;
+                    }
+                }
+                jump_len = current->jump_table[jump_index].from - current->jump_table[jump_index].to + (current->jump_table[jump_index].bytes / sizeof(inst_type)) + extra_bytes + 1;
+            }
+            emit_inst(obj_chunk->code[i]);
+            size_t offset = current_chunk()->size;
+            for(size_t j = 0; j < current->jump_table[jump_index].bytes; j += sizeof(inst_type))
+            {
+                emit_inst(0x0);
+            }
+            uint8_t* data = (uint8_t*)(&current_chunk()->code[offset]);
+            for(size_t j = current->jump_table[jump_index].bytes; j > 0; j--)
+            {
+                data[j - 1] = (jump_len >> (8 * (current->jump_table[jump_index].bytes - j))) & 0xff;
+            }
+            printf("Have jump %zu to %zu, jump len: %zu\n", current->jump_table[jump_index].from, current->jump_table[jump_index].to, jump_len);
+            jump_index++;
+        }
+        else
+        {
+            emit_inst(obj_chunk->code[i]);
+        }
+    }
+}
+
 bool compile(const char* src, Chunk* chunk)
 {
     init_scanner(src);
     
     Compiler compiler;
     init_compiler(&compiler);
-    compiling_chunk = chunk;
+    Chunk obj_chunk;
+    init_chunk(&obj_chunk);
+    compiling_chunk = &obj_chunk;
 
     parser.had_error = false;
     parser.panic_mode = false;
@@ -1463,6 +1637,8 @@ bool compile(const char* src, Chunk* chunk)
             }
         }
     }
+
+    resolve_jump_table(&obj_chunk, chunk);
 
     end_compiler();
     return !parser.had_error;

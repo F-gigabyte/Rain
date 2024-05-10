@@ -35,12 +35,16 @@ static size_t index_inst(const char* name, Chunk* chunk, size_t off_size, size_t
     return offset + inc_offset + 1;
 }
 
-static size_t jump_inst(const char* name, int8_t sign, Chunk* chunk, size_t offset)
+static size_t jump_inst(const char* name, int8_t sign, Chunk* chunk, size_t off_size, size_t offset)
 {
     uint8_t* data = (uint8_t*)(chunk->code + offset + 1);
-    uint32_t jump = ((uint32_t)data[0] << 24) | ((uint32_t)data[1] << 16) | ((uint32_t)data[2] << 8) | ((uint32_t)data[3]);
+    size_t jump = 0;
+    for(size_t j = off_size; j > 0; j--)
+    {
+        jump |= ((size_t)data[j - 1] << ((off_size - j) * 8));
+    }
     size_t i = 0;
-    for(;i < sizeof(uint32_t); i += sizeof(inst_type)){}
+    for(;i < off_size; i += sizeof(inst_type)){}
     if(sign >= 0)
     {
         printf("%-16s %4zu -> %zu\n", name, offset, offset + 1 + i + jump);
@@ -279,17 +283,69 @@ size_t disassemble_inst(Chunk* chunk, size_t offset)
         {
             return index_inst("OP_GET_LOCAL_LONG", chunk, 8, offset);
         }
-        case OP_JUMP_IF_FALSE:
+        case OP_JUMP_IF_FALSE_BYTE:
         {
-            return jump_inst("OP_JUMP_IF_FALSE", 1, chunk, offset);
+            return jump_inst("OP_JUMP_IF_FALSE_BYTE", 1, chunk, 1, offset);
         }
-        case OP_JUMP:
+        case OP_JUMP_IF_FALSE_SHORT:
         {
-            return jump_inst("OP_JUMP", 1, chunk, offset);
+            return jump_inst("OP_JUMP_IF_FALSE_SHORT", 1, chunk, 2, offset);
         }
-        case OP_LOOP:
+        case OP_JUMP_IF_FALSE_WORD:
         {
-            return jump_inst("OP_LOOP", -1, chunk, offset);
+            return jump_inst("OP_JUMP_IF_FALSE_WORD", 1, chunk, 4, offset);
+        }
+        case OP_JUMP_IF_FALSE_LONG:
+        {
+            return jump_inst("OP_JUMP_IF_FALSE_LONG", 1, chunk, 8, offset);
+        }
+        case OP_JUMP_IF_TRUE_BYTE:
+        {
+            return jump_inst("OP_JUMP_IF_TRUE_BYTE", 1, chunk, 1, offset);
+        }
+        case OP_JUMP_IF_TRUE_SHORT:
+        {
+            return jump_inst("OP_JUMP_IF_TRUE_SHORT", 1, chunk, 2, offset);
+        }
+        case OP_JUMP_IF_TRUE_WORD:
+        {
+            return jump_inst("OP_JUMP_IF_TRUE_WORD", 1, chunk, 4, offset);
+        }
+        case OP_JUMP_IF_TRUE_LONG:
+        {
+            return jump_inst("OP_JUMP_IF_TRUE_LONG", 1, chunk, 8, offset);
+        }
+        case OP_JUMP_BYTE:
+        {
+            return jump_inst("OP_JUMP_BYTE", 1, chunk, 1, offset);
+        }
+        case OP_JUMP_SHORT:
+        {
+            return jump_inst("OP_JUMP_SHORT", 1, chunk, 2, offset);
+        }
+        case OP_JUMP_WORD:
+        {
+            return jump_inst("OP_JUMP_WORD", 1, chunk, 4, offset);
+        }
+        case OP_JUMP_LONG:
+        {
+            return jump_inst("OP_JUMP_LONG", 1, chunk, 8, offset);
+        }
+        case OP_JUMP_BACK_BYTE:
+        {
+            return jump_inst("OP_JUMP_BACK_BYTE", -1, chunk, 1, offset);
+        }
+        case OP_JUMP_BACK_SHORT:
+        {
+            return jump_inst("OP_JUMP_BACK_SHORT", -1, chunk, 2, offset);
+        }
+        case OP_JUMP_BACK_WORD:
+        {
+            return jump_inst("OP_JUMP_BACK_WORD", -1, chunk, 4, offset);
+        }
+        case OP_JUMP_BACK_LONG:
+        {
+            return jump_inst("OP_JUMP_BACK_LONG", -1, chunk, 8, offset);
         }
         default:
         {

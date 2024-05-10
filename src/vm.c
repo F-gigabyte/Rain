@@ -76,11 +76,15 @@ static Value read_const(size_t offset_size)
     return vm.chunk->consts.values[index];
 }
 
-static uint32_t read_jump()
+static size_t read_jump(size_t offset_size)
 {
     uint8_t* data = (uint8_t*)vm.ip;
-    uint32_t offset = ((uint32_t)data[0] << 24) | ((uint32_t)data[1] << 16) | ((uint32_t)data[2] << 8) | (uint32_t)data[3];
-    for(size_t i = 0; i < sizeof(uint32_t); i += sizeof(inst_type))
+    size_t offset = 0;
+    for(size_t i = offset_size; i > 0; i--)
+    {
+        offset |= ((size_t)data[(i - 1)] << ((offset_size - i) * 8));
+    }
+    for(size_t i = 0; i < offset_size; i += sizeof(inst_type))
     {
         vm.ip++;
     }
@@ -1016,24 +1020,155 @@ static InterpretResult run()
                 vm.stack[slot] = peek(0);
                 break;
             }
-            case OP_JUMP_IF_FALSE:
+            case OP_JUMP_IF_FALSE_BYTE:
             {
-                uint32_t offset = read_jump();
-                if(IS_BOOL(peek(0)) && AS_BOOL(peek(0)) == false)
+                size_t offset = read_jump(1);
+                if(!IS_BOOL(peek(0)))
+                {
+                    runtime_error("Condition expression is not boolean");
+                }
+                if(AS_BOOL(peek(0)) == false)
                 {
                     vm.ip += offset;
                 }
                 break;
             }
-            case OP_JUMP:
+            case OP_JUMP_IF_FALSE_SHORT:
             {
-                uint32_t offset = read_jump();
+                size_t offset = read_jump(2);
+                if(!IS_BOOL(peek(0)))
+                {
+                    runtime_error("Condition expression is not boolean");
+                }
+                if(AS_BOOL(peek(0)) == false)
+                {
+                    vm.ip += offset;
+                }
+                break;
+            }
+            case OP_JUMP_IF_FALSE_WORD:
+            {
+                size_t offset = read_jump(4);
+                if(!IS_BOOL(peek(0)))
+                {
+                    runtime_error("Condition expression is not boolean");
+                }
+                if(AS_BOOL(peek(0)) == false)
+                {
+                    vm.ip += offset;
+                }
+                break;
+            }
+            case OP_JUMP_IF_FALSE_LONG:
+            {
+                size_t offset = read_jump(8);
+                if(!IS_BOOL(peek(0)))
+                {
+                    runtime_error("Condition expression is not boolean");
+                }
+                if(AS_BOOL(peek(0)) == false)
+                {
+                    vm.ip += offset;
+                }
+                break;
+            }
+            case OP_JUMP_IF_TRUE_BYTE:
+            {
+                size_t offset = read_jump(1);
+                if(!IS_BOOL(peek(0)))
+                {
+                    runtime_error("Condition expression is not boolean");
+                }
+                if(AS_BOOL(peek(0)) == true)
+                {
+                    vm.ip += offset;
+                }
+                break;
+            }
+            case OP_JUMP_IF_TRUE_SHORT:
+            {
+                size_t offset = read_jump(2);
+                if(!IS_BOOL(peek(0)))
+                {
+                    runtime_error("Condition expression is not boolean");
+                }
+                if(AS_BOOL(peek(0)) == true)
+                {
+                    vm.ip += offset;
+                }
+                break;
+            }
+            case OP_JUMP_IF_TRUE_WORD:
+            {
+                size_t offset = read_jump(4);
+                if(!IS_BOOL(peek(0)))
+                {
+                    runtime_error("Condition expression is not boolean");
+                }
+                if(AS_BOOL(peek(0)) == true)
+                {
+                    vm.ip += offset;
+                }
+                break;
+            }
+            case OP_JUMP_IF_TRUE_LONG:
+            {
+                size_t offset = read_jump(8);
+                if(!IS_BOOL(peek(0)))
+                {
+                    runtime_error("Condition expression is not boolean");
+                }
+                if(AS_BOOL(peek(0)) == true)
+                {
+                    vm.ip += offset;
+                }
+                break;
+            }
+            case OP_JUMP_BYTE:
+            {
+                size_t offset = read_jump(1);
                 vm.ip += offset;
                 break;
             }
-            case OP_LOOP:
+            case OP_JUMP_SHORT:
             {
-                uint32_t offset = read_jump();
+                size_t offset = read_jump(2);
+                vm.ip += offset;
+                break;
+            }
+            case OP_JUMP_WORD:
+            {
+                size_t offset = read_jump(4);
+                vm.ip += offset;
+                break;
+            }
+            case OP_JUMP_LONG:
+            {
+                size_t offset = read_jump(8);
+                vm.ip += offset;
+                break;
+            }
+            case OP_JUMP_BACK_BYTE:
+            {
+                size_t offset = read_jump(1);
+                vm.ip -= offset;
+                break;
+            }
+            case OP_JUMP_BACK_SHORT:
+            {
+                size_t offset = read_jump(2);
+                vm.ip -= offset;
+                break;
+            }
+            case OP_JUMP_BACK_WORD:
+            {
+                size_t offset = read_jump(4);
+                vm.ip -= offset;
+                break;
+            }
+            case OP_JUMP_BACK_LONG:
+            {
+                size_t offset = read_jump(8);
                 vm.ip -= offset;
                 break;
             }

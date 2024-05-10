@@ -60,13 +60,27 @@ typedef enum
     OP_SET_LOCAL_SHORT,
     OP_SET_LOCAL_WORD,
     OP_SET_LOCAL_LONG,
-    OP_JUMP_IF_FALSE,
-    OP_JUMP,
-    OP_LOOP,
+    OP_JUMP_IF_FALSE_BYTE,
+    OP_JUMP_IF_FALSE_SHORT,
+    OP_JUMP_IF_FALSE_WORD,
+    OP_JUMP_IF_FALSE_LONG,
+    OP_JUMP_IF_TRUE_BYTE,
+    OP_JUMP_IF_TRUE_SHORT,
+    OP_JUMP_IF_TRUE_WORD,
+    OP_JUMP_IF_TRUE_LONG,
+    OP_JUMP_BYTE,
+    OP_JUMP_SHORT,
+    OP_JUMP_WORD,
+    OP_JUMP_LONG,
+    OP_JUMP_BACK_BYTE,
+    OP_JUMP_BACK_SHORT,
+    OP_JUMP_BACK_WORD,
+    OP_JUMP_BACK_LONG,
 } Opcode;
 
 typedef struct
 {
+    size_t start_line;
     size_t size;
     size_t capacity;
     inst_type* code;

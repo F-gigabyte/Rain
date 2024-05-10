@@ -3,6 +3,7 @@
 
 void init_chunk(Chunk* chunk)
 {
+    chunk->start_line = 0;
     chunk->capacity = 0;
     chunk->size = 0;
     chunk->code = NULL;
