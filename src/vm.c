@@ -1212,7 +1212,7 @@ static InterpretResult run()
             }
             case OP_INDEX_GET:
             {
-                if(!IS_ARRAY(peek(1)))
+                if(!IS_ARRAY(peek(1)) && !IS_STRING(peek(1)))
                 {
                     runtime_error("Cannot index value");
                     return INTERPRET_RUNTIME_ERROR;
@@ -1229,17 +1229,32 @@ static InterpretResult run()
                 }
                 Value index = pop();
                 Value array = pop();
-                if(AS_INT(index) >= AS_ARRAY(array)->len)
+                if(IS_ARRAY(array))
                 {
-                    runtime_error("Index is beyond value's bounds");
-                    return INTERPRET_RUNTIME_ERROR;
+                    if(AS_INT(index) >= AS_ARRAY(array)->len)
+                    {
+                        runtime_error("Index is beyond array's bounds");
+                        return INTERPRET_RUNTIME_ERROR;
+                    }
+                    push(AS_CARRAY(array)[AS_INT(index)]);
                 }
-                push(AS_CARRAY(array)[AS_INT(index)]);
+                else
+                {
+                    if(AS_INT(index) >= AS_STRING(array)->len)
+                    {
+                        runtime_error("Index is beyond string's bounds");
+                        return INTERPRET_RUNTIME_ERROR;
+                    }
+                    char c = AS_CSTRING(array)[AS_INT(index)];
+                    char* letter = ALLOCATE(char, 1);
+                    *letter = c;
+                    push(OBJ_VAL((Obj*)take_str(letter, 1)));
+                }
                 break;
             }
             case OP_INDEX_PEEK:
             {
-                if(!IS_ARRAY(peek(1)))
+                if(!IS_ARRAY(peek(1))) 
                 {
                     runtime_error("Cannot index value");
                     return INTERPRET_RUNTIME_ERROR;
@@ -1256,11 +1271,6 @@ static InterpretResult run()
                 }
                 Value index = pop();
                 Value array = pop();
-                if(AS_INT(index) >= AS_ARRAY(array)->len)
-                {
-                    runtime_error("Index is beyond value's bounds");
-                    return INTERPRET_RUNTIME_ERROR;
-                }
                 push(array);
                 push(index);
                 push(AS_CARRAY(array)[AS_INT(index)]);
