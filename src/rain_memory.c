@@ -28,6 +28,12 @@ static void free_obj(Obj* obj)
             FREE(ObjString, obj);
             break;
         }
+        case OBJ_ARRAY:
+        {
+            ObjArray* array = (ObjArray*)obj;
+            FREE(ObjArray, array);
+            break;
+        }
         default:
         {
             break;
