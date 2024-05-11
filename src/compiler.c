@@ -794,6 +794,39 @@ static void grouping(bool assignable)
     consume(TOKEN_RIGHT_PAREN, "Expect ')' after expression");
 }
 
+static void array(bool assignable)
+{
+    consume(TOKEN_LEFT_SQR, "Expect '[' after 'array'");
+    if(!(match(TOKEN_INT) || match(TOKEN_INT_HEX) || match(TOKEN_INT_BIN) || match(TOKEN_INT_OCT)))
+    {
+        error("Expect array size after '['");
+        return;
+    }
+    int64_t len = 0;
+    if(!str_to_int(&len, parser.previous.start, parser.previous.len))
+    {
+        error("Integer is too large");
+        return;
+    }
+    if(len <= 0)
+    {
+        error("Array size must be larger than 0");
+        return;
+    }
+    consume(TOKEN_RIGHT_SQR, "Expect ']' after array size");
+    if(match(TOKEN_LEFT_PAREN))
+    {
+        expression();
+        consume(TOKEN_RIGHT_PAREN, "Expect ')' after array initializer");
+        emit_const(INT_VAL(len));
+        emit_inst(OP_INIT_ARRAY);
+    }
+    else
+    {
+        emit_const(OBJ_VAL((Obj*)build_array(len, NULL_VAL)));
+    }
+}
+
 static void number(bool assignable)
 {
     switch(parser.previous.type)
@@ -938,6 +971,87 @@ static void string(bool assignable)
 static Value ident_constant(Token* name);
 static Value resolve_local(Compiler* compiler, Token* name);
 
+#define EMIT_ASSIGNMENT(get_var) \
+{ \
+    if(match(TOKEN_EQL)) \
+    { \
+        expression(); \
+    } \
+    else if(match(TOKEN_PLUS_EQL)) \
+    { \
+        get_var; \
+        expression(); \
+        emit_inst(OP_ADD); \
+    } \
+    else if(match(TOKEN_MINUS_EQL)) \
+    { \
+        get_var; \
+        expression(); \
+        emit_inst(OP_SUB); \
+    } \
+    else if(match(TOKEN_STAR_EQL)) \
+    { \
+        get_var; \
+        expression(); \
+        emit_inst(OP_MUL); \
+    } \
+    else if(match(TOKEN_SLASH_EQL)) \
+    { \
+        get_var; \
+        expression(); \
+        emit_inst(OP_DIV); \
+    } \
+    else if(match(TOKEN_PERC_EQL)) \
+    { \
+        get_var; \
+        expression(); \
+        emit_inst(OP_REM); \
+    } \
+    else if(match(TOKEN_UP_EQL)) \
+    { \
+        get_var; \
+        expression(); \
+        emit_inst(OP_BIT_XOR); \
+    } \
+    else if(match(TOKEN_AMP_EQL)) \
+    { \
+        get_var; \
+        expression(); \
+        emit_inst(OP_BIT_AND); \
+    } \
+    else if(match(TOKEN_LINE_EQL)) \
+    { \
+        get_var; \
+        expression(); \
+        emit_inst(OP_BIT_OR); \
+    } \
+    else if(match(TOKEN_LESS_LESS_EQL)) \
+    { \
+        get_var; \
+        expression(); \
+        emit_inst(OP_SHIFT_LEFT); \
+    } \
+    else if(match(TOKEN_GREATER_GREATER_EQL)) \
+    { \
+        get_var; \
+        expression(); \
+        emit_inst(OP_SHIFT_ARITH_RIGHT); \
+        advance(); \
+    } \
+    else if(match(TOKEN_PLUS_PLUS)) \
+    { \
+        get_var; \
+        emit_const(INT_VAL(1)); \
+        emit_inst(OP_ADD); \
+    } \
+    else if(match(TOKEN_MINUS_MINUS)) \
+    { \
+        get_var; \
+        emit_const(INT_VAL(1)); \
+        emit_inst(OP_SUB); \
+    } \
+}
+
 static void named_variable(Token name, bool assignable)
 {
     bool global = false;
@@ -958,83 +1072,7 @@ static void named_variable(Token name, bool assignable)
     }
     if(assignable && (check(TOKEN_EQL) || check(TOKEN_PLUS_EQL) || check(TOKEN_MINUS_EQL) || check(TOKEN_STAR_EQL) || check(TOKEN_SLASH_EQL) || check(TOKEN_PERC_EQL) || check(TOKEN_UP_EQL) || check(TOKEN_AMP_EQL) || check(TOKEN_LINE_EQL) || check(TOKEN_LESS_LESS_EQL) || check(TOKEN_GREATER_GREATER_EQL) || check(TOKEN_PLUS_PLUS) || check(TOKEN_MINUS_MINUS)))
     {
-        if(match(TOKEN_EQL))
-        {
-            expression();
-        }
-        else if(match(TOKEN_PLUS_EQL))
-        {
-            expression();
-            emit_get_var(arg, global);
-            emit_inst(OP_ADD);
-        }
-        else if(match(TOKEN_MINUS_EQL))
-        {
-            emit_get_var(arg, global);
-            expression();
-            emit_inst(OP_SUB);
-        }
-        else if(match(TOKEN_STAR_EQL))
-        {
-            expression();
-            emit_get_var(arg, global);
-            emit_inst(OP_MUL);
-        }
-        else if(match(TOKEN_SLASH_EQL))
-        {
-            emit_get_var(arg, global);
-            expression();
-            emit_inst(OP_DIV);
-        }
-        else if(match(TOKEN_PERC_EQL))
-        {
-            emit_get_var(arg, global);
-            expression();
-            emit_inst(OP_REM);
-        }
-        else if(match(TOKEN_UP_EQL))
-        {
-            expression();
-            emit_get_var(arg, global);
-            emit_inst(OP_BIT_XOR);
-        }
-        else if(match(TOKEN_AMP_EQL))
-        {
-            expression();
-            emit_get_var(arg, global);
-            emit_inst(OP_BIT_AND);
-        }
-        else if(match(TOKEN_LINE_EQL))
-        {
-            expression();
-            emit_get_var(arg, global);
-            emit_inst(OP_BIT_OR);
-        }
-        else if(match(TOKEN_LESS_LESS_EQL))
-        {
-            emit_get_var(arg, global);
-            expression();
-            emit_inst(OP_SHIFT_LEFT);
-        }
-        else if(match(TOKEN_GREATER_GREATER_EQL))
-        {
-            emit_get_var(arg, global);
-            expression();
-            emit_inst(OP_SHIFT_ARITH_RIGHT);
-            advance();
-        }
-        else if(match(TOKEN_PLUS_PLUS))
-        {
-            emit_const(INT_VAL(1));
-            emit_get_var(arg, global);
-            emit_inst(OP_ADD);
-        }
-        else
-        {
-            emit_get_var(arg, global);
-            emit_const(INT_VAL(1));
-            emit_inst(OP_SUB);
-        }
+        EMIT_ASSIGNMENT(emit_get_var(arg, global));
         emit_set_var(arg, global);
         if(constant)
         {
@@ -1048,7 +1086,22 @@ static void named_variable(Token name, bool assignable)
     else
     {
         emit_get_var(arg, global);
-    }    
+        while(match(TOKEN_LEFT_SQR))
+        {
+            expression();
+            consume(TOKEN_RIGHT_SQR, "Expect ']' after index");
+            if((check(TOKEN_EQL) || check(TOKEN_PLUS_EQL) || check(TOKEN_MINUS_EQL) || check(TOKEN_STAR_EQL) || check(TOKEN_SLASH_EQL) || check(TOKEN_PERC_EQL) || check(TOKEN_UP_EQL) || check(TOKEN_AMP_EQL) || check(TOKEN_LINE_EQL) || check(TOKEN_LESS_LESS_EQL) || check(TOKEN_GREATER_GREATER_EQL) || check(TOKEN_PLUS_PLUS) || check(TOKEN_MINUS_MINUS)))
+            {
+                EMIT_ASSIGNMENT(emit_inst(OP_INDEX_PEEK));
+                emit_inst(OP_INDEX_SET);
+                break;
+            }
+            else
+            {
+                emit_inst(OP_INDEX_GET);    
+            }
+        }    
+    }
 }
 
 static void variable(bool assignable)
@@ -1482,8 +1535,8 @@ ParseRule rules[] = {
     [TOKEN_INT_BIN]                 = {number,   NULL,   PREC_NONE},
     [TOKEN_INT_OCT]                 = {number,   NULL,   PREC_NONE},
     [TOKEN_FLOAT]                   = {number,   NULL,   PREC_NONE},
-    [TOKEN_AND]                     = {NULL,     and_,   PREC_AND},
-    [TOKEN_ARRAY]                   = {NULL,     NULL,   PREC_NONE},
+    [TOKEN_AND]                     = {NULL,     and_,    PREC_AND},
+    [TOKEN_ARRAY]                   = {array,    NULL,   PREC_NONE},
     [TOKEN_BOOL_CAST]               = {cast,     NULL,   PREC_NONE},
     [TOKEN_CLASS]                   = {NULL,     NULL,   PREC_NONE},
     [TOKEN_CONST]                   = {NULL,     NULL,   PREC_NONE},
@@ -1498,7 +1551,7 @@ ParseRule rules[] = {
     [TOKEN_IMPORT]                  = {NULL,     NULL,   PREC_NONE},
     [TOKEN_NOT]                     = {unary,    NULL,   PREC_NONE},
     [TOKEN_NULL]                    = {literal,  NULL,   PREC_NONE},
-    [TOKEN_OR]                      = {NULL,     or_,    PREC_OR},
+    [TOKEN_OR]                      = {NULL,     or_,      PREC_OR},
     [TOKEN_OVERRIDE]                = {NULL,     NULL,   PREC_NONE},
     [TOKEN_PRINT]                   = {NULL,     NULL,   PREC_NONE},
     [TOKEN_PRIV]                    = {NULL,     NULL,   PREC_NONE},

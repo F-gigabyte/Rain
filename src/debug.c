@@ -347,6 +347,22 @@ size_t disassemble_inst(Chunk* chunk, size_t offset)
         {
             return jump_inst("OP_JUMP_BACK_LONG", -1, chunk, 8, offset);
         }
+        case OP_INIT_ARRAY:
+        {
+            return simple_inst("OP_INIT_ARRAY", offset);
+        }
+        case OP_INDEX_GET:
+        {
+            return simple_inst("OP_INDEX_GET", offset);
+        }
+        case OP_INDEX_SET:
+        {
+            return simple_inst("OP_INDEX_SET", offset);
+        }
+        case OP_INDEX_PEEK:
+        {
+            return simple_inst("OP_INDEX_PEEK", offset);
+        }
         default:
         {
             printf("Unknown opcode %d\n", inst);

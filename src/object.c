@@ -9,6 +9,8 @@
     (type*)allocate_obj(sizeof(type), obj_type)
 #define ALLOCATE_STR(len) \
     (ObjString*)allocate_obj(sizeof(ObjString) + len, OBJ_STRING)
+#define ALLOCATE_ARRAY(len) \
+    (ObjArray*)allocate_obj(sizeof(ObjArray) + (len) * sizeof(Value), OBJ_ARRAY)
 
 static uint32_t hash_str(const char* str, size_t len)
 {
@@ -39,6 +41,13 @@ static ObjString* allocate_str(const char* chars, size_t len)
     str->hash = hash_str(str->chars, str->len);
     hash_table_insert(&vm.strings, str, false, NULL_VAL);
     return str;
+}
+
+static ObjArray* allocate_array(int64_t len)
+{
+    ObjArray* array = ALLOCATE_ARRAY(len);
+    array->len = len;
+    return array;
 }
 
 ObjString* take_str(char* chars, size_t len)
@@ -208,10 +217,43 @@ void print_obj(Value value)
             printf("%s", AS_CSTRING(value));
             break;
         }
+        case OBJ_ARRAY:
+        {
+            printf("[");
+            for(size_t i = 0; i < AS_ARRAY(value)->len - 1; i++)
+            {
+                print_value(AS_CARRAY(value)[i]);
+                printf(", ");
+            }
+            print_value(AS_CARRAY(value)[AS_ARRAY(value)->len - 1]);
+            printf("]");
+            break;
+        }
         default:
         {
             printf("unknown object");
             break;
         }
     }
+}
+
+ObjArray* build_array(int64_t len, Value val)
+{
+    ObjArray* array = allocate_array(len);
+    for(size_t i = 0; i < len; i++)
+    {
+        array->data[i] = val;
+    }
+    return array;
+}
+
+ObjArray* fill_array(int64_t len, Value* values)
+{
+    ObjArray* array = allocate_array(len);
+    for(size_t i = 0; i < len; i++)
+    {
+        array->data[i] = values[i];
+    }
+    FREE_ARRAY(Value, values, len);
+    return array;
 }

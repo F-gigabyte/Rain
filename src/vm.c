@@ -1172,6 +1172,108 @@ static InterpretResult run()
                 vm.ip -= offset;
                 break;
             }
+            case OP_INIT_ARRAY:
+            {
+                if(!IS_INT(peek(0)))
+                {
+                    runtime_error("Must have integer size for array");
+                    return INTERPRET_RUNTIME_ERROR;
+                }
+                if(AS_INT(peek(0)) <= 0)
+                {
+                    runtime_error("Array size must be greater than 0");
+                    return INTERPRET_RUNTIME_ERROR;
+                }
+                Value size = pop();
+                Value val = pop();
+                push(OBJ_VAL((Obj*)build_array(AS_INT(size), val)));
+                break;
+            }
+            case OP_INDEX_GET:
+            {
+                if(!IS_ARRAY(peek(1)))
+                {
+                    runtime_error("Cannot index value");
+                    return INTERPRET_RUNTIME_ERROR;
+                }
+                if(!IS_INT(peek(0)))
+                {
+                    runtime_error("Must have integer index");
+                    return INTERPRET_RUNTIME_ERROR;
+                }
+                if(AS_INT(peek(0)) < 0)
+                {
+                    runtime_error("Index can't be negative");
+                    return INTERPRET_RUNTIME_ERROR;
+                }
+                Value index = pop();
+                Value array = pop();
+                if(AS_INT(index) >= AS_ARRAY(array)->len)
+                {
+                    runtime_error("Index is beyond value's bounds");
+                    return INTERPRET_RUNTIME_ERROR;
+                }
+                push(AS_CARRAY(array)[AS_INT(index)]);
+                break;
+            }
+            case OP_INDEX_PEEK:
+            {
+                if(!IS_ARRAY(peek(1)))
+                {
+                    runtime_error("Cannot index value");
+                    return INTERPRET_RUNTIME_ERROR;
+                }
+                if(!IS_INT(peek(0)))
+                {
+                    runtime_error("Must have integer index");
+                    return INTERPRET_RUNTIME_ERROR;
+                }
+                if(AS_INT(peek(0)) < 0)
+                {
+                    runtime_error("Index can't be negative");
+                    return INTERPRET_RUNTIME_ERROR;
+                }
+                Value index = pop();
+                Value array = pop();
+                if(AS_INT(index) >= AS_ARRAY(array)->len)
+                {
+                    runtime_error("Index is beyond value's bounds");
+                    return INTERPRET_RUNTIME_ERROR;
+                }
+                push(array);
+                push(index);
+                push(AS_CARRAY(array)[AS_INT(index)]);
+                break;
+            }
+            case OP_INDEX_SET:
+            {
+                if(!IS_ARRAY(peek(2)))
+                {
+                    runtime_error("Cannot index value");
+                    return INTERPRET_RUNTIME_ERROR;
+                }
+                if(!IS_INT(peek(1)))
+                {
+                    runtime_error("Must have integer index");
+                    return INTERPRET_RUNTIME_ERROR;
+                }
+                if(AS_INT(peek(1)) < 0)
+                {
+                    runtime_error("Index can't be negative");
+                    return INTERPRET_RUNTIME_ERROR;
+                }
+                Value val = pop();
+                Value index = pop();
+                Value array = pop();
+                if(AS_INT(index) >= AS_ARRAY(array)->len)
+                {
+                    runtime_error("Index is beyond value's bounds");
+                    return INTERPRET_RUNTIME_ERROR;
+                }
+                AS_CARRAY(array)[AS_INT(index)] = val;
+                push(array);
+                break;
+            }
             default:
             {
                 runtime_error("Unknown instruction %u", inst);
