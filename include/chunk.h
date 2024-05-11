@@ -77,6 +77,7 @@ typedef enum
     OP_JUMP_BACK_WORD,
     OP_JUMP_BACK_LONG,
     OP_INIT_ARRAY,
+    OP_FILL_ARRAY,
     OP_INDEX_GET,
     OP_INDEX_PEEK,
     OP_INDEX_SET,

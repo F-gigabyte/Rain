@@ -794,7 +794,7 @@ static void grouping(bool assignable)
     consume(TOKEN_RIGHT_PAREN, "Expect ')' after expression");
 }
 
-static void array(bool assignable)
+static void reserve_array(bool assignable)
 {
     consume(TOKEN_LEFT_SQR, "Expect '[' after 'array'");
     if(!(match(TOKEN_INT) || match(TOKEN_INT_HEX) || match(TOKEN_INT_BIN) || match(TOKEN_INT_OCT)))
@@ -825,6 +825,26 @@ static void array(bool assignable)
     {
         emit_const(OBJ_VAL((Obj*)build_array(len, NULL_VAL)));
     }
+}
+
+static void array(bool assignable)
+{
+    int64_t len = 1;
+    expression();
+    while(!check(TOKEN_RIGHT_SQR) && !check(TOKEN_EOF))
+    {
+        len++;
+        if(len <= 0)
+        {
+            error("Array is too large");
+            return;
+        }
+        consume(TOKEN_COMMA, "Expect ',' to separate array values");
+        expression();
+    }
+    consume(TOKEN_RIGHT_SQR, "Unterminated array");
+    emit_const(INT_VAL(len));
+    emit_inst(OP_FILL_ARRAY);
 }
 
 static void number(bool assignable)
@@ -1492,6 +1512,9 @@ ParseRule rules[] = {
     [TOKEN_RIGHT_BRACE]             = {NULL,     NULL,   PREC_NONE},
     [TOKEN_COMMA]                   = {NULL,     NULL,   PREC_NONE},
     [TOKEN_DOT]                     = {NULL,     NULL,   PREC_NONE},
+    [TOKEN_SEMICOLON]               = {NULL,     NULL,   PREC_NONE},
+    [TOKEN_LEFT_SQR]                = {array,    NULL,   PREC_NONE},
+    [TOKEN_RIGHT_SQR]               = {NULL,     NULL,   PREC_NONE},
     [TOKEN_MINUS]                   = {unary,    binary, PREC_TERM},
     [TOKEN_PLUS]                    = {NULL,     binary, PREC_TERM},
     [TOKEN_STAR]                    = {NULL,     binary, PREC_FACTOR},
@@ -1536,7 +1559,7 @@ ParseRule rules[] = {
     [TOKEN_INT_OCT]                 = {number,   NULL,   PREC_NONE},
     [TOKEN_FLOAT]                   = {number,   NULL,   PREC_NONE},
     [TOKEN_AND]                     = {NULL,     and_,    PREC_AND},
-    [TOKEN_ARRAY]                   = {array,    NULL,   PREC_NONE},
+    [TOKEN_ARRAY]                   = {reserve_array,    NULL,   PREC_NONE},
     [TOKEN_BOOL_CAST]               = {cast,     NULL,   PREC_NONE},
     [TOKEN_CLASS]                   = {NULL,     NULL,   PREC_NONE},
     [TOKEN_CONST]                   = {NULL,     NULL,   PREC_NONE},

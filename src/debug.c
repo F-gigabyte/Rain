@@ -351,6 +351,10 @@ size_t disassemble_inst(Chunk* chunk, size_t offset)
         {
             return simple_inst("OP_INIT_ARRAY", offset);
         }
+        case OP_FILL_ARRAY:
+        {
+            return simple_inst("OP_FILL_ARRAY", offset);
+        }
         case OP_INDEX_GET:
         {
             return simple_inst("OP_INDEX_GET", offset);

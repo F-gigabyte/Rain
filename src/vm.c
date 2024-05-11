@@ -1189,6 +1189,27 @@ static InterpretResult run()
                 push(OBJ_VAL((Obj*)build_array(AS_INT(size), val)));
                 break;
             }
+            case OP_FILL_ARRAY:
+            {
+                if(!IS_INT(peek(0)))
+                {
+                    runtime_error("Must have integer size for array");
+                    return INTERPRET_RUNTIME_ERROR;
+                }
+                if(AS_INT(peek(0)) <= 0)
+                {
+                    runtime_error("Array size must be greater than 0");
+                    return INTERPRET_RUNTIME_ERROR;
+                }
+                Value size = pop();
+                ObjArray* array = build_array(AS_INT(size), NULL_VAL);
+                for(size_t i = AS_INT(size); i > 0; i--)
+                {
+                    array->data[i - 1] = pop();
+                }
+                push(OBJ_VAL((Obj*)array));
+                break;
+            }
             case OP_INDEX_GET:
             {
                 if(!IS_ARRAY(peek(1)))
@@ -1312,6 +1333,11 @@ void push(Value value)
 
 Value pop()
 {
+    if(vm.stack_top == 0)
+    {
+        runtime_error("No more values on stack");
+        return NULL_VAL;
+    }
     vm.stack_top--;
     return *vm.stack_top;
 }
