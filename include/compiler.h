@@ -3,6 +3,6 @@
 
 #include <vm.h>
 
-bool compile(const char* src, Chunk* chunk);
+bool compile(const char* src, Chunk* chunk, HashTable* global_names);
 
 #endif

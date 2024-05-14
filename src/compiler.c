@@ -396,10 +396,18 @@ typedef struct {
     size_t depth;
 } Local;
 
+typedef enum
+{
+    JUMP_FORWARD,
+    JUMP_BACKWARD,
+    JUMP_CALL,
+} JumpType;
+
 typedef struct {
     size_t from;
     size_t to;
     size_t bytes;
+    JumpType type;
 } JumpPair;
 
 typedef struct {
@@ -410,6 +418,7 @@ typedef struct {
     JumpPair* jump_table;
     size_t jump_table_size;
     size_t jump_table_capacity;
+    HashTable globals;
 } Compiler;
 
 Parser parser;
@@ -431,7 +440,7 @@ static size_t get_next_line()
     return current_chunk()->size + current_chunk()->start_line;
 }
 
-static void add_jump(size_t from, size_t to)
+static void add_jump(size_t from, size_t to, JumpType type)
 {
     if(current->jump_table_size >= current->jump_table_capacity)
     {
@@ -440,7 +449,7 @@ static void add_jump(size_t from, size_t to)
         current->jump_table_capacity = new_cap;
         current->jump_table = next_table;
     }
-    current->jump_table[current->jump_table_size] = (JumpPair){.from = from, .to = to, .bytes = 0};
+    current->jump_table[current->jump_table_size] = (JumpPair){.from = from, .to = to, .bytes = 0, .type = type};
     current->jump_table_size++;
 }
 
@@ -490,6 +499,7 @@ static void init_compiler(Compiler* compiler)
     compiler->jump_table = NULL;
     compiler->jump_table_capacity = 0;
     compiler->jump_table_size = 0;
+    init_hash_table(&compiler->globals);
     current = compiler;
 }
 
@@ -558,7 +568,7 @@ static size_t emit_jump(inst_type type)
 {
     emit_inst(type);
     size_t index = current->jump_table_size;
-    add_jump(current_chunk()->size - 1, 0xffffffff);
+    add_jump(current_chunk()->size - 1, 0xffffffff, JUMP_FORWARD);
     return index;
 }
 
@@ -570,7 +580,7 @@ static void patch_jump(size_t index)
 static void emit_loop(size_t loop_start)
 {
     emit_inst(OP_JUMP_BACK_BYTE);
-    add_jump(current_chunk()->size - 1, loop_start);
+    add_jump(current_chunk()->size - 1, loop_start, JUMP_BACKWARD);
 }
 
 static void end_compiler()
@@ -580,6 +590,7 @@ static void end_compiler()
     current->jump_table = NULL;
     current->jump_table_capacity = 0;
     current->jump_table_size = 0;
+    free_hash_table(&current->globals);
 #ifdef DEBUG_PRINT_CODE
     if(!parser.had_error)
     {
@@ -599,16 +610,11 @@ static void emit_const(Value value)
     write_chunk_const(current_chunk(), make_const(value), parser.previous.line);
 }
 
-static void emit_var(Value value)
-{
-    write_chunk_var(current_chunk(), make_const(value), parser.previous.line);
-}
-
 static void emit_get_var(Value value, bool global)
 {
     if(global)
     {
-        write_chunk_get_global_var(current_chunk(), make_const(value), parser.previous.line);
+        write_chunk_get_global_var(current_chunk(), (size_t)AS_INT(value), parser.previous.line);
     }
     else
     {
@@ -620,7 +626,7 @@ static void emit_set_var(Value value, bool global)
 {
     if(global)
     {
-        write_chunk_set_global_var(current_chunk(), make_const(value), parser.previous.line);
+        write_chunk_set_global_var(current_chunk(), (size_t)AS_INT(value), parser.previous.line);
     }
     else
     {
@@ -1080,7 +1086,17 @@ static void named_variable(Token name, bool assignable)
     if(arg.type == VAL_NULL)
     {
         global = true;
-        arg = ident_constant(&name);
+        Value global_name = ident_constant(&name);
+        if(!hash_table_get(&current->globals, AS_STRING(global_name), &arg))
+        {
+            size_t len = snprintf(NULL, 0, "Undefined variable '%s'", AS_CSTRING(global_name));
+            char* buffer = ALLOCATE(char, len + 1);
+            snprintf(buffer, len + 1, "Undefined variable '%s'", AS_CSTRING(global_name));
+            error(buffer);
+            FREE(char, buffer);
+            return;
+        }
+        constant = hash_table_is_const(&current->globals, AS_STRING(global_name)) == 2;
     }
     else
     {
@@ -1096,9 +1112,9 @@ static void named_variable(Token name, bool assignable)
         emit_set_var(arg, global);
         if(constant)
         {
-            size_t len = snprintf(NULL, 0, "Assigning to constant local variable '%*s'", (int)name.len, name.start);
+            size_t len = snprintf(NULL, 0, "Assigning to constant variable '%.*s'", (int)name.len, name.start);
             char* buffer = ALLOCATE(char, len + 1);
-            snprintf(buffer, len + 1, "Assigning to constant local variable '%*s'", (int)name.len, name.start);
+            snprintf(buffer, len + 1, "Assigning to constant variable '%.*s'", (int)name.len, name.start);
             error(buffer);
             FREE(char, buffer);
         }
@@ -1317,15 +1333,20 @@ static void for_statement()
         increments = true;
         init_chunk(&inc_chunk);
         inc_chunk.consts = current_chunk()->consts;
+        inc_chunk.globals = current_chunk()->globals;
         Chunk* temp = current_chunk();
         compiling_chunk = &inc_chunk; 
         expression();
         emit_inst(OP_POP);
         compiling_chunk = temp;
         compiling_chunk->consts = inc_chunk.consts;
+        compiling_chunk->globals = inc_chunk.globals;
         inc_chunk.consts.values = NULL;
         inc_chunk.consts.capacity = 0;
         inc_chunk.consts.size = 0;
+        inc_chunk.globals.values = NULL;
+        inc_chunk.globals.capacity = 0;
+        inc_chunk.globals.size = 0;
         consume(TOKEN_RIGHT_PAREN, "Expect ')' after for clauses");
     }
     consume(TOKEN_LEFT_BRACE, "Expect '{' after loop expression");
@@ -1395,16 +1416,16 @@ static bool ident_equal(Token* a, Token* b)
 
 static Value resolve_local(Compiler* compiler, Token* name)
 {
-    for(size_t i = compiler->local_size - 1; i < compiler->local_size; i--)
+    for(size_t i = compiler->local_size; i > 0; i--)
     {
-        Local* local = &compiler->locals[i];
+        Local* local = &compiler->locals[i - 1];
         if(ident_equal(name, &local->name))
         {
             if(local->depth == 0)
             {
                 error("Can't read local variable in it's own initialiser");
             }
-            return INT_VAL((int64_t)i);
+            return INT_VAL((int64_t)(i - 1));
         }
     }
     return NULL_VAL;
@@ -1423,6 +1444,14 @@ static void add_local(Token name, bool constant)
     current->local_size++;
 }
 
+static Value add_global(Value name, bool constant)
+{
+    Value index = INT_VAL((int64_t)current_chunk()->globals.size);
+    hash_table_insert(&current->globals, AS_STRING(name), constant, index);
+    write_value_array(&current_chunk()->globals, NULL_VAL);
+    return index;
+}
+
 static Value parse_variable(const char* error_msg, bool constant)
 {
     consume(TOKEN_IDENT, error_msg);
@@ -1438,9 +1467,9 @@ static Value parse_variable(const char* error_msg, bool constant)
             }
             if(ident_equal(name, &local->name))
             {
-                size_t len = snprintf(NULL, 0, "Already defined variable '%*s' in this scope", (int)local->name.len, local->name.start);
+                size_t len = snprintf(NULL, 0, "Already defined '%.*s' in this scope", (int)local->name.len, local->name.start);
                 char* buffer = ALLOCATE(char, len + 1);
-                snprintf(buffer, len + 1, "Already define variable '%*s' in this scope", (int)local->name.len, local->name.start);
+                snprintf(buffer, len + 1, "Already defined '%.*s' in this scope", (int)local->name.len, local->name.start);
                 error(buffer);
                 FREE(char, buffer);
             }
@@ -1448,13 +1477,17 @@ static Value parse_variable(const char* error_msg, bool constant)
         add_local(*name, constant);
         return NULL_VAL;
     }
-    return ident_constant(&parser.previous);
-}
-
-static void define_variable(Value name, bool constant)
-{
-    emit_const(BOOL_VAL(constant));
-    emit_var(name);
+    Value name = ident_constant(&parser.previous);
+    Value test;
+    if(hash_table_get(&current->globals, AS_STRING(name), &test))
+    {
+        size_t len = snprintf(NULL, 0, "Already defined global '%s'", AS_CSTRING(name));
+        char* buffer = ALLOCATE(char, len + 1);
+        snprintf(buffer, len + 1, "Already defined global '%s'", AS_CSTRING(name));
+        error(buffer);
+        FREE(char, buffer);
+    }
+    return add_global(name, constant);
 }
 
 static void mark_inititialised()
@@ -1476,12 +1509,18 @@ static void var_declaration(bool constant)
     consume(TOKEN_SEMICOLON, "Expect ';' after variable declaration");
     if(current->scope_depth == 0)
     {
-        define_variable(name, constant);
+        emit_set_var(name, true);
+        emit_inst(OP_POP);
     }
-    else
+    if(current->scope_depth > 0)
     {
         mark_inititialised();
     }
+}
+
+static void func_declaration()
+{
+    Value val = parse_variable("expect function name", true);
 }
 
 static void declaration()
@@ -1597,7 +1636,7 @@ static void resolve_jump_table(Chunk* obj_chunk, Chunk* res)
     for(size_t i = 0; i < current->jump_table_size; i++)
     {
         // foward jump
-        if(current->jump_table[i].from <= current->jump_table[i].to)
+        if(current->jump_table[i].type == JUMP_FORWARD)
         {
             size_t extra_bytes = 0;
             for(size_t j = i + 1; j < current->jump_table_size; j++)
@@ -1631,43 +1670,41 @@ static void resolve_jump_table(Chunk* obj_chunk, Chunk* res)
         }
         else
         {
-            if(current->jump_table[i].to < current->jump_table[i].from)
+            size_t extra_bytes = 0;
+            for(size_t j = i; j > 0; j--)
             {
-                size_t extra_bytes = 0;
-                for(size_t j = i; j > 0; j--)
+                size_t index = j - 1;
+                if(current->jump_table[index].from <= current->jump_table[i].to)
                 {
-                    size_t index = j - 1;
-                    if(current->jump_table[index].from <= current->jump_table[i].to)
-                    {
-                        break;
-                    }
-                    else
-                    {
-                        extra_bytes += 8 / sizeof(inst_type);
-                    }
-                }
-                size_t jump_len = extra_bytes + current->jump_table[i].from - current->jump_table[i].to + 1;
-                if(jump_len + (1 / sizeof(inst_type)) < 0x100 && sizeof(inst_type) == 1)
-                {
-                    current->jump_table[i].bytes = 1;
-                }
-                else if(jump_len + (2 / sizeof(inst_type)) < 0x10000 && sizeof(inst_type) <= 2)
-                {
-                    current->jump_table[i].bytes = 2;
-                }
-                else if(jump_len + (4 / sizeof(inst_type)) < 0x100000000 && sizeof(inst_type) <= 4)
-                {
-                    current->jump_table[i].bytes = 4;
+                    break;
                 }
                 else
                 {
-                    current->jump_table[i].bytes = 8;
+                    extra_bytes += 8 / sizeof(inst_type);
                 }
+            }
+            size_t jump_len = extra_bytes + current->jump_table[i].from - current->jump_table[i].to + 1;
+            if(jump_len + (1 / sizeof(inst_type)) < 0x100 && sizeof(inst_type) == 1)
+            {
+                current->jump_table[i].bytes = 1;
+            }
+            else if(jump_len + (2 / sizeof(inst_type)) < 0x10000 && sizeof(inst_type) <= 2)
+            {
+                current->jump_table[i].bytes = 2;
+            }
+            else if(jump_len + (4 / sizeof(inst_type)) < 0x100000000 && sizeof(inst_type) <= 4)
+            {
+                current->jump_table[i].bytes = 4;
+            }
+            else
+            {
+                current->jump_table[i].bytes = 8;
             }
         }
     }
     compiling_chunk = res;
     res->consts = obj_chunk->consts;
+    res->globals = obj_chunk->globals;
     size_t jump_index = 0;
     for(size_t i = 0; i < obj_chunk->size; i++)
     {
@@ -1698,7 +1735,7 @@ static void resolve_jump_table(Chunk* obj_chunk, Chunk* res)
             }
             obj_chunk->code[i] += inst_inc;
             size_t jump_len = 0;
-            if(current->jump_table[jump_index].from <= current->jump_table[jump_index].to)
+            if(current->jump_table[jump_index].type == JUMP_FORWARD)
             {
                 size_t extra_bytes = 0;
                 for(size_t j = jump_index + 1; j < current->jump_table_size; j++)
@@ -1752,7 +1789,7 @@ static void resolve_jump_table(Chunk* obj_chunk, Chunk* res)
     }
 }
 
-bool compile(const char* src, Chunk* chunk)
+bool compile(const char* src, Chunk* chunk, HashTable* global_names)
 {
     init_scanner(src);
     
@@ -1760,6 +1797,11 @@ bool compile(const char* src, Chunk* chunk)
     init_compiler(&compiler);
     Chunk obj_chunk;
     init_chunk(&obj_chunk);
+    if(global_names)
+    {
+        compiler.globals = *global_names;
+        obj_chunk.globals = chunk->globals;
+    }
     compiling_chunk = &obj_chunk;
 
     parser.had_error = false;
@@ -1794,6 +1836,13 @@ bool compile(const char* src, Chunk* chunk)
 
     resolve_jump_table(&obj_chunk, chunk);
 
+    if(global_names)
+    {
+        *global_names = compiler.globals;
+        compiler.globals.entries = NULL;
+        compiler.globals.capacity = 0;
+        compiler.globals.count = 0;
+    }
     end_compiler();
     return !parser.had_error;
 }

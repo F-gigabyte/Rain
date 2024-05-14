@@ -34,6 +34,12 @@ static void free_obj(Obj* obj)
             FREE(ObjArray, array);
             break;
         }
+        case OBJ_FUNC:
+        {
+            ObjFunc* func = (ObjFunc*)obj;
+            FREE(ObjFunc, func);
+            break;
+        }
         default:
         {
             break;

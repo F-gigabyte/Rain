@@ -40,7 +40,6 @@ void init_vm()
 {
     reset_stack();
     vm.objects = NULL;
-    init_hash_table(&vm.globals);
     init_hash_table(&vm.strings);
 }
 
@@ -74,6 +73,18 @@ static Value read_const(size_t offset_size)
 {
     size_t index = read_inst_index(offset_size);
     return vm.chunk->consts.values[index];
+}
+
+static Value read_global(size_t offset_size)
+{
+    size_t index = read_inst_index(offset_size);
+    return vm.chunk->globals.values[index];
+}
+
+static void write_global(size_t offset_size, Value value)
+{
+    size_t index = read_inst_index(offset_size);
+    vm.chunk->globals.values[index] = value;
 }
 
 static size_t read_jump(size_t offset_size)
@@ -764,212 +775,52 @@ static InterpretResult run()
                 pop();
                 break;
             }
-            case OP_DEFINE_GLOBAL_BYTE:
-            {
-                ObjString* name = READ_STRING(1);
-                if(hash_table_find_str(&vm.globals, name->chars, name->len, name->hash) == NULL)
-                {
-                    hash_table_insert(&vm.globals, name, AS_BOOL(peek(0)), peek(1));
-                    pop();
-                    pop();
-                }
-                else
-                {
-                    runtime_error("Redefinition of global variable '%s'", name->chars);
-                    return INTERPRET_RUNTIME_ERROR;
-                }
-                break;
-            }
-            case OP_DEFINE_GLOBAL_SHORT:
-            {
-                ObjString* name = READ_STRING(2);
-                if(hash_table_find_str(&vm.globals, name->chars, name->len, name->hash) == NULL)
-                {
-                    hash_table_insert(&vm.globals, name, AS_BOOL(peek(0)), peek(1));
-                    pop();
-                    pop();
-                }
-                else
-                {
-                    runtime_error("Redefinition of global variable '%s'", name->chars);
-                    return INTERPRET_RUNTIME_ERROR;
-                }
-                break;
-            }
-            case OP_DEFINE_GLOBAL_WORD:
-            {
-                ObjString* name = READ_STRING(4);
-                if(hash_table_find_str(&vm.globals, name->chars, name->len, name->hash) == NULL)
-                {
-                    hash_table_insert(&vm.globals, name, AS_BOOL(peek(0)), peek(1));
-                    pop();
-                    pop();
-                }
-                else
-                {
-                    runtime_error("Redefinition of global variable '%s'", name->chars);
-                    return INTERPRET_RUNTIME_ERROR;
-                }
-                break;
-            }
-            case OP_DEFINE_GLOBAL_LONG:
-            {
-                ObjString* name = READ_STRING(8);
-                if(hash_table_find_str(&vm.globals, name->chars, name->len, name->hash) == NULL)
-                {
-                    hash_table_insert(&vm.globals, name, AS_BOOL(peek(0)), peek(1));
-                    pop();
-                    pop();
-                }
-                else
-                {
-                    runtime_error("Redefinition of global variable '%s'", name->chars);
-                    return INTERPRET_RUNTIME_ERROR;
-                }
-                break;
-            }
             case OP_GET_GLOBAL_BYTE:
             {
-                ObjString* name = READ_STRING(1);
-                Value value;
-                if(!hash_table_get(&vm.globals, name, &value))
-                {
-                    runtime_error("Undefined variable '%s'", name->chars);
-                    return INTERPRET_RUNTIME_ERROR;
-                }
+                Value value = read_global(1);
                 push(value);
                 break;
             }
             case OP_GET_GLOBAL_SHORT:
             {
-                ObjString* name = READ_STRING(2);
-                Value value;
-                if(!hash_table_get(&vm.globals, name, &value))
-                {
-                    runtime_error("Undefined variable '%s'", name->chars);
-                    return INTERPRET_RUNTIME_ERROR;
-                }
+                Value value = read_global(2);
                 push(value);
                 break;
             }
             case OP_GET_GLOBAL_WORD:
             {
-                ObjString* name = READ_STRING(4);
-                Value value;
-                if(!hash_table_get(&vm.globals, name, &value))
-                {
-                    runtime_error("Undefined variable '%s'", name->chars);
-                    return INTERPRET_RUNTIME_ERROR;
-                }
+                Value value = read_global(4);
                 push(value);
                 break;
             }
             case OP_GET_GLOBAL_LONG:
             {
-                ObjString* name = READ_STRING(8);
-                Value value;
-                if(!hash_table_get(&vm.globals, name, &value))
-                {
-                    runtime_error("Undefined variable '%s'", name->chars);
-                    return INTERPRET_RUNTIME_ERROR;
-                }
+                Value value = read_global(8);
                 push(value);
                 break;
             }
             case OP_SET_GLOBAL_BYTE:
             {
-                ObjString* name = READ_STRING(1);
                 Value value = peek(0);
-                switch(hash_table_is_const(&vm.globals, name))
-                {
-                    case 1:
-                    {
-                        hash_table_set(&vm.globals, name, value);
-                        break;
-                    }
-                    case 2:
-                    {
-                        runtime_error("Assigning to constant '%s'", name->chars);
-                        return INTERPRET_RUNTIME_ERROR;
-                    }
-                    default:
-                    {
-                        runtime_error("Undefined variable '%s'", name->chars);
-                        return INTERPRET_RUNTIME_ERROR;
-                    }
-                }
+                write_global(1, value);
                 break;
             }
             case OP_SET_GLOBAL_SHORT:
             {
-                ObjString* name = READ_STRING(2);
                 Value value = peek(0);
-                switch(hash_table_is_const(&vm.globals, name))
-                {
-                    case 1:
-                    {
-                        hash_table_set(&vm.globals, name, value);
-                        break;
-                    }
-                    case 2:
-                    {
-                        runtime_error("Assigning to constant '%s'", name->chars);
-                        return INTERPRET_RUNTIME_ERROR;
-                    }
-                    default:
-                    {
-                        runtime_error("Undefined variable '%s'", name->chars);
-                        return INTERPRET_RUNTIME_ERROR;
-                    }
-                }
+                write_global(2, value);
                 break;
             }
             case OP_SET_GLOBAL_WORD:
             {
-                ObjString* name = READ_STRING(4);
                 Value value = peek(0);
-                switch(hash_table_is_const(&vm.globals, name))
-                {
-                    case 1:
-                    {
-                        hash_table_set(&vm.globals, name, value);
-                        break;
-                    }
-                    case 2:
-                    {
-                        runtime_error("Assigning to constant '%s'", name->chars);
-                        return INTERPRET_RUNTIME_ERROR;
-                    }
-                    default:
-                    {
-                        runtime_error("Undefined variable '%s'", name->chars);
-                        return INTERPRET_RUNTIME_ERROR;
-                    }
-                }
+                write_global(4, value);
                 break;
             }
             case OP_SET_GLOBAL_LONG:
             {
-                ObjString* name = READ_STRING(8);
                 Value value = peek(0);
-                switch(hash_table_is_const(&vm.globals, name))
-                {
-                    case 1:
-                    {
-                        hash_table_set(&vm.globals, name, value);
-                        break;
-                    }
-                    case 2:
-                    {
-                        runtime_error("Assigning to constant '%s'", name->chars);
-                        return INTERPRET_RUNTIME_ERROR;
-                    }
-                    default:
-                    {
-                        runtime_error("Undefined variable '%s'", name->chars);
-                        return INTERPRET_RUNTIME_ERROR;
-                    }
-                }
+                write_global(8, value);
                 break;
             }
             case OP_GET_LOCAL_BYTE:
@@ -1269,10 +1120,8 @@ static InterpretResult run()
                     runtime_error("Index can't be negative");
                     return INTERPRET_RUNTIME_ERROR;
                 }
-                Value index = pop();
-                Value array = pop();
-                push(array);
-                push(index);
+                Value index = peek(0);
+                Value array = peek(1);
                 push(AS_CARRAY(array)[AS_INT(index)]);
                 break;
             }
@@ -1317,12 +1166,23 @@ static InterpretResult run()
 #undef READ_INST
 #undef READ_STRING
 
-InterpretResult interpret(const char* src)
+InterpretResult interpret(const char* src, HashTable* global_names, ValueArray* globals)
 {
     Chunk chunk;
     init_chunk(&chunk);
-    if(!compile(src, &chunk))
+    if(globals)
     {
+        chunk.globals = *globals;
+    }
+    if(!compile(src, &chunk, global_names))
+    {
+        if(globals)
+        {
+            *globals = chunk.globals;
+            chunk.globals.values = NULL;
+            chunk.globals.size = 0;
+            chunk.globals.capacity = 0;
+        }
         free_chunk(&chunk);
         return INTERPRET_COMPILE_ERROR;
     }
@@ -1331,6 +1191,13 @@ InterpretResult interpret(const char* src)
 
     InterpretResult res = run();
 
+    if(globals)
+    {
+        *globals = chunk.globals;
+        chunk.globals.values = NULL;
+        chunk.globals.size = 0;
+        chunk.globals.capacity = 0;
+    }
     free_chunk(&chunk);
     return res;
 }
@@ -1354,7 +1221,6 @@ Value pop()
 
 void free_vm()
 {
-    free_hash_table(&vm.globals);
     free_hash_table(&vm.strings);
     free_objs();
 }

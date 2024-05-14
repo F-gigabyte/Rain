@@ -40,10 +40,6 @@ typedef enum
     OP_CAST_BOOL,
     OP_PRINT,
     OP_POP,
-    OP_DEFINE_GLOBAL_BYTE,
-    OP_DEFINE_GLOBAL_SHORT,
-    OP_DEFINE_GLOBAL_WORD,
-    OP_DEFINE_GLOBAL_LONG,
     OP_GET_GLOBAL_BYTE,
     OP_GET_GLOBAL_SHORT,
     OP_GET_GLOBAL_WORD,
@@ -91,6 +87,7 @@ typedef struct
     inst_type* code;
     LineArray line_encoding;
     ValueArray consts;
+    ValueArray globals;
 } Chunk;
 
 // initialises chunk of bytecode
@@ -101,8 +98,6 @@ void write_chunk(Chunk* chunk, inst_type inst, size_t line);
 size_t add_const(Chunk* chunk, Value value);
 // writes a constant instruction to the bytecode
 void write_chunk_const(Chunk* chunk, size_t const_index, size_t line);
-// writes a define global instruction to the bytecode
-void write_chunk_var(Chunk* chunk, size_t const_index, size_t line);
 // writes a get global instruction to the bytecode
 void write_chunk_get_global_var(Chunk* chunk, size_t const_index, size_t line);
 // writes a set global instruction to the bytecode

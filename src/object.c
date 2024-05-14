@@ -229,6 +229,11 @@ void print_obj(Value value)
             printf("]");
             break;
         }
+        case OBJ_FUNC:
+        {
+            printf("<func %s (args: %zu): %zu>", AS_FUNC(value)->name->chars, AS_FUNC(value)->num_inputs, AS_FUNC(value)->offset);
+            break;   
+        }
         default:
         {
             printf("unknown object");
@@ -256,4 +261,14 @@ ObjArray* fill_array(int64_t len, Value* values)
     }
     FREE_ARRAY(Value, values, len);
     return array;
+}
+
+ObjFunc* new_func()
+{
+    ObjFunc* func = ALLOCATE_OBJ(ObjFunc, OBJ_FUNC);
+    func->defined = false;
+    func->name = NULL;
+    func->num_inputs = 0;
+    func->offset = 0;
+    return func;
 }

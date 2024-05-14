@@ -203,53 +203,37 @@ size_t disassemble_inst(Chunk* chunk, size_t offset)
         {
             return simple_inst("OP_POP", offset);
         }
-        case OP_DEFINE_GLOBAL_BYTE:
-        {
-            return const_inst("OP_DEFINE_GLOBAL_BYTE", chunk, 1, offset);
-        }
-        case OP_DEFINE_GLOBAL_SHORT:
-        {
-            return const_inst("OP_DEFINE_GLOBAL_SHORT", chunk, 2, offset);
-        }
-        case OP_DEFINE_GLOBAL_WORD:
-        {
-            return const_inst("OP_DEFINE_GLOBAL_WORD", chunk, 4, offset);
-        }
-        case OP_DEFINE_GLOBAL_LONG:
-        {
-            return const_inst("OP_DEFINE_GLOBAL_LONG", chunk, 8, offset);
-        }
         case OP_GET_GLOBAL_BYTE:
         {
-            return const_inst("OP_GET_GLOBAL_BYTE", chunk, 1, offset);
+            return index_inst("OP_GET_GLOBAL_BYTE", chunk, 1, offset);
         }
         case OP_GET_GLOBAL_SHORT:
         {
-            return const_inst("OP_GET_GLOBAL_SHORT", chunk, 2, offset);
+            return index_inst("OP_GET_GLOBAL_SHORT", chunk, 2, offset);
         }
         case OP_GET_GLOBAL_WORD:
         {
-            return const_inst("OP_GET_GLOBAL_WORD", chunk, 4, offset);
+            return index_inst("OP_GET_GLOBAL_WORD", chunk, 4, offset);
         }
         case OP_GET_GLOBAL_LONG:
         {
-            return const_inst("OP_GET_GLOBAL_LONG", chunk, 8, offset);
+            return index_inst("OP_GET_GLOBAL_LONG", chunk, 8, offset);
         }
         case OP_SET_GLOBAL_BYTE:
         {
-            return const_inst("OP_SET_GLOBAL_BYTE", chunk, 1, offset);
+            return index_inst("OP_SET_GLOBAL_BYTE", chunk, 1, offset);
         }
         case OP_SET_GLOBAL_SHORT:
         {
-            return const_inst("OP_SET_GLOBAL_SHORT", chunk, 2, offset);
+            return index_inst("OP_SET_GLOBAL_SHORT", chunk, 2, offset);
         }
         case OP_SET_GLOBAL_WORD:
         {
-            return const_inst("OP_SET_GLOBAL_WORD", chunk, 4, offset);
+            return index_inst("OP_SET_GLOBAL_WORD", chunk, 4, offset);
         }
         case OP_SET_GLOBAL_LONG:
         {
-            return const_inst("OP_SET_GLOBAL_LONG", chunk, 8, offset);
+            return index_inst("OP_SET_GLOBAL_LONG", chunk, 8, offset);
         }
         case OP_GET_LOCAL_BYTE:
         {

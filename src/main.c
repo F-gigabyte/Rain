@@ -6,6 +6,10 @@
 
 static void repl()
 {
+    ValueArray globals;
+    HashTable global_names;
+    init_value_array(&globals);
+    init_hash_table(&global_names);
     for(;;)
     {
         printf("~> ");
@@ -22,7 +26,7 @@ static void repl()
             free(line);
             break;
         }
-        interpret(line);
+        interpret(line, &global_names, &globals);
         free(line);
     }
 }
@@ -64,7 +68,7 @@ static char* read_file(const char* path)
 static void run_file(const char* path)
 {
     char* src = read_file(path);
-    InterpretResult result = interpret(src);
+    InterpretResult result = interpret(src, NULL, NULL);
     free(src);
     if(result == INTERPRET_COMPILE_ERROR)
     {

@@ -12,7 +12,6 @@ typedef struct {
     inst_type* ip;
     Value stack[STACK_MAX];
     Value* stack_top;
-    HashTable globals;
     HashTable strings;
     Obj* objects;
 } VM;
@@ -28,7 +27,7 @@ extern VM vm;
 // initialises virtual machine
 void init_vm();
 // interprets a chunk
-InterpretResult interpret(const char* src);
+InterpretResult interpret(const char* src, HashTable* global_names, ValueArray* globals);
 // push value onto stack
 void push(Value value);
 // pop value from stack
