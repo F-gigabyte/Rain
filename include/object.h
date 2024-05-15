@@ -57,9 +57,10 @@ static inline bool is_obj_type(Value value, ObjType type)
 
 ObjString* take_str(char* chars, size_t len);
 ObjString* copy_str(const char* chars, size_t len);
+ObjString* concat_str(ObjString* a, ObjString* b);
 ObjArray* build_array(int64_t len, Value val);
 ObjArray* fill_array(int64_t len, Value* values);
 ObjFunc* new_func();
-void print_obj(Value value);
+ObjString* obj_to_str(Value value);
 
 #endif

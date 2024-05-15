@@ -3,6 +3,7 @@
 #include <rain_memory.h>
 #include <object.h>
 #include <string.h>
+#include <convert.h>
 
 void init_value_array(ValueArray* array)
 {
@@ -67,41 +68,42 @@ void free_value_array(ValueArray* array)
 
 void print_value(Value value)
 {
+    ObjString* text = value_to_str(value);
+    printf("%s", text->chars);
+}
+
+ObjString* value_to_str(Value value)
+{
     switch(value.type)
     {
         case VAL_FLOAT:
         {
-            printf("%f", AS_FLOAT(value));
-            break;
+            double num = AS_FLOAT(value);
+            char* res_chars = float_to_str(num);
+            return take_str(res_chars, strlen(res_chars));
         }
         case VAL_INT:
         {
-#ifdef LONG64
-            printf("%ld", AS_INT(value));
-#else
-            printf("%lld", AS_INT(value));
-#endif
-            break;
+            int64_t num = AS_INT(value);
+            char* res_chars = int_to_dec_str(num);
+            return take_str(res_chars, strlen(res_chars));
         }
         case VAL_BOOL:
         {
-            printf(AS_BOOL(value) ? "true" : "false");
-            break;
+            bool res = AS_BOOL(value);
+            return copy_str(res ? "true" : "false", res ? 4 : 5);
         }
         case VAL_NULL:
         {
-            printf("null");
-            break;
+            return copy_str("null", 4);
         }
         case VAL_OBJ:
         {
-            print_obj(value);
-            break;
+            return obj_to_str(value);
         }
         default:
         {
-            printf("unknown");
-            break;
+            return copy_str("Unknown", 7);
         }
     }
 }

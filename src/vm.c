@@ -657,55 +657,7 @@ static InterpretResult run()
             case OP_CAST_STR:
             {
                 Value val = pop();
-                switch(val.type)
-                {
-                    case VAL_BOOL:
-                    {
-                        push(OBJ_VAL((Obj*)(AS_BOOL(val) ? copy_str("true", 4) : copy_str("false", 5))));
-                        break;
-                    }
-                    case VAL_INT:
-                    {
-                        int64_t num = AS_INT(val);
-                        char* res_chars = int_to_dec_str(num);
-                        push(OBJ_VAL((Obj*)take_str(res_chars, strlen(res_chars))));
-                        break;
-                    }
-                    case VAL_NULL:
-                    {
-                        push(OBJ_VAL((Obj*)copy_str("null", 4)));
-                        break;
-                    }
-                    case VAL_FLOAT:
-                    {
-                        double num = AS_FLOAT(val);
-                        char* res_chars = float_to_str(num);
-                        push(OBJ_VAL((Obj*)take_str(res_chars, strlen(res_chars))));
-                        break;
-                    }
-                    case VAL_OBJ:
-                    {
-                        switch(OBJ_TYPE(val))
-                        {
-                            case OBJ_STRING:
-                            {
-                                push(val);
-                                break;
-                            }
-                            default:
-                            {
-                                runtime_error("Unsupported conversion of object to string");
-                                return INTERPRET_RUNTIME_ERROR;
-                            }
-                        }
-                        break;
-                    }
-                    default:
-                    {
-                        runtime_error("Unknown type");
-                        return INTERPRET_RUNTIME_ERROR;
-                    }
-                }
+                push(OBJ_VAL((Obj*)value_to_str(val)));
                 break;
             }
             case OP_CAST_FLOAT:

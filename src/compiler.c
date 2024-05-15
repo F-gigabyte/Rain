@@ -418,6 +418,9 @@ typedef struct {
     JumpPair* jump_table;
     size_t jump_table_size;
     size_t jump_table_capacity;
+    ObjFunc** func_table;
+    size_t func_table_size;
+    size_t func_table_cap;
     HashTable globals;
 } Compiler;
 
@@ -451,6 +454,19 @@ static void add_jump(size_t from, size_t to, JumpType type)
     }
     current->jump_table[current->jump_table_size] = (JumpPair){.from = from, .to = to, .bytes = 0, .type = type};
     current->jump_table_size++;
+}
+
+static void add_func(ObjFunc* func)
+{
+    if(current->func_table_size >= current->func_table_cap)
+    {
+        size_t new_cap = GROW_CAPACITY(current->func_table_cap);
+        ObjFunc** next_table = GROW_ARRAY(ObjFunc*, current->func_table, current->func_table_cap, new_cap);
+        current->func_table_cap = new_cap;
+        current->func_table = next_table;
+    }
+    current->func_table[current->func_table_size] = func;
+    current->func_table_size++;
 }
 
 static void error_at(Token* token, const char* msg)
@@ -499,6 +515,9 @@ static void init_compiler(Compiler* compiler)
     compiler->jump_table = NULL;
     compiler->jump_table_capacity = 0;
     compiler->jump_table_size = 0;
+    compiler->func_table = NULL;
+    compiler->func_table_cap = 0;
+    compiler->func_table_size = 0;
     init_hash_table(&compiler->globals);
     current = compiler;
 }
@@ -590,6 +609,10 @@ static void end_compiler()
     current->jump_table = NULL;
     current->jump_table_capacity = 0;
     current->jump_table_size = 0;
+    FREE(ObjFunc*, current->func_table);
+    current->func_table = NULL;
+    current->func_table_cap = 0;
+    current->func_table_size = 0;
     free_hash_table(&current->globals);
 #ifdef DEBUG_PRINT_CODE
     if(!parser.had_error)
@@ -1083,7 +1106,7 @@ static void named_variable(Token name, bool assignable)
     bool global = false;
     bool constant = false;
     Value arg = resolve_local(current, &name);
-    if(arg.type == VAL_NULL)
+    if(IS_NULL(arg))
     {
         global = true;
         Value global_name = ident_constant(&name);
@@ -1492,6 +1515,10 @@ static Value parse_variable(const char* error_msg, bool constant)
 
 static void mark_inititialised()
 {
+    if(current->scope_depth == 0)
+    {
+        return;
+    }
     current->locals[current->local_size - 1].depth = current->scope_depth + 1;
 }
 
@@ -1518,9 +1545,52 @@ static void var_declaration(bool constant)
     }
 }
 
+static void function(Value val)
+{
+    ObjString* func_name = copy_str(parser.previous.start, parser.previous.len);
+    size_t from = emit_jump(OP_JUMP_BYTE);
+    size_t offset = current_chunk()->size;
+    ObjFunc* func = new_func();
+    func->name = func_name;
+    func->defined = true;
+    func->num_inputs = 0;
+    func->offset = offset;
+    begin_scope();
+    consume(TOKEN_LEFT_PAREN, "Expect '(' after function name");
+    if(!check(TOKEN_RIGHT_PAREN))
+    {
+        parse_variable("Expect parameter name", false);
+        mark_inititialised(); // initialise parameter
+        func->num_inputs++;
+        while(!check(TOKEN_RIGHT_PAREN) && !check(TOKEN_EOF))
+        {
+            consume(TOKEN_COMMA, "Expect ',' to separate function parameters");
+            parse_variable("Expect parameter name", false);
+            mark_inititialised(); // initialise parameter
+            func->num_inputs++;
+        }
+    }
+    consume(TOKEN_RIGHT_PAREN, "Expect ')' after parameters");
+    consume(TOKEN_LEFT_BRACE, "Expect '{' before function body");
+    block();
+    end_scope();
+    emit_inst(OP_RETURN);
+    patch_jump(from);
+    add_func(func);
+    emit_const(OBJ_VAL((Obj*)func));
+    if(!IS_NULL(val))
+    {
+        hash_table_get(&current->globals, func_name, &val);
+        emit_set_var(val, true);
+        emit_inst(OP_POP);
+    }
+}
+
 static void func_declaration()
 {
-    Value val = parse_variable("expect function name", true);
+    Value val = parse_variable("Expect function name", true);
+    mark_inititialised();
+    function(val);
 }
 
 static void declaration()
@@ -1532,6 +1602,10 @@ static void declaration()
     else if(match(TOKEN_CONST))
     {
         var_declaration(true);
+    }
+    else if(match(TOKEN_FUNC))
+    {
+        func_declaration();
     }
     else
     {

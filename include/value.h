@@ -65,5 +65,6 @@ void write_value_array(ValueArray* array, Value value);
 void free_value_array(ValueArray* array);
 // prints a value
 void print_value(Value value);
+ObjString* value_to_str(Value value);
 
 #endif

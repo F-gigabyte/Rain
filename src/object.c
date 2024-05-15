@@ -208,36 +208,46 @@ ObjString* copy_str(const char* chars, size_t len)
     return res;
 }
 
-void print_obj(Value value)
+ObjString* concat_str(ObjString* a, ObjString* b)
+{
+    size_t res_len = a->len + b->len;
+    char* res_chars = ALLOCATE(char, res_len);
+    memcpy(res_chars, a->chars, a->len);
+    memcpy(res_chars + a->len, b->chars, b->len);
+    return take_str(res_chars, res_len);
+
+}
+
+ObjString* obj_to_str(Value value)
 {
     switch(OBJ_TYPE(value))
     {
         case OBJ_STRING:
         {
-            printf("%s", AS_CSTRING(value));
-            break;
+            return AS_STRING(value);
         }
         case OBJ_ARRAY:
         {
-            printf("[");
+            ObjString* res = copy_str("[", 1);
             for(size_t i = 0; i < AS_ARRAY(value)->len - 1; i++)
             {
-                print_value(AS_CARRAY(value)[i]);
-                printf(", ");
+                res = concat_str(res, obj_to_str(AS_CARRAY(value)[i])); 
+                res = concat_str(res, copy_str(", ", 2));
             }
-            print_value(AS_CARRAY(value)[AS_ARRAY(value)->len - 1]);
-            printf("]");
-            break;
+            res = concat_str(res, value_to_str(AS_CARRAY(value)[AS_ARRAY(value)->len - 1]));
+            res = concat_str(res, copy_str("]", 1));
+            return res;
         }
         case OBJ_FUNC:
         {
-            printf("<func %s (args: %zu): %zu>", AS_FUNC(value)->name->chars, AS_FUNC(value)->num_inputs, AS_FUNC(value)->offset);
-            break;   
+            size_t len = snprintf(NULL, 0, "<func %s (args: %zu): %zu>", AS_FUNC(value)->name->chars, AS_FUNC(value)->num_inputs, AS_FUNC(value)->offset);
+            char* res_chars = ALLOCATE(char, len + 1);
+            snprintf(res_chars, len + 1, "<func %s (args: %zu): %zu>", AS_FUNC(value)->name->chars, AS_FUNC(value)->num_inputs, AS_FUNC(value)->offset);
+            return take_str(res_chars, len);
         }
         default:
         {
-            printf("unknown object");
-            break;
+            return copy_str("Unknown Object", 14);
         }
     }
 }
