@@ -231,7 +231,7 @@ ObjString* obj_to_str(Value value)
             ObjString* res = copy_str("[", 1);
             for(size_t i = 0; i < AS_ARRAY(value)->len - 1; i++)
             {
-                res = concat_str(res, obj_to_str(AS_CARRAY(value)[i])); 
+                res = concat_str(res, value_to_str(AS_CARRAY(value)[i])); 
                 res = concat_str(res, copy_str(", ", 2));
             }
             res = concat_str(res, value_to_str(AS_CARRAY(value)[AS_ARRAY(value)->len - 1]));

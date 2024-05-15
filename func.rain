@@ -5,9 +5,12 @@ func test_func(a, b)
 
 print("Outside test_func");
 
-for(var i = 0; i < 5; i++)
-{
-    print("i is {i}");
-}
 
 print("Function is {test_func}");
+{
+    func test_func2(a, b)
+    {
+        print("b is {b} and a is {a}");
+    }
+    print(test_func2(1, 2));
+}

@@ -1,0 +1,23 @@
+func fib(n)
+{
+    if(n <= 0)
+    {
+        ret 0;
+    }
+    if(n == 1)
+    {
+        ret 1;
+    }
+    else
+    {
+        ret fib(n - 1) + fib(n - 2);
+    }
+}
+
+const seq = array[10];
+for(var i = 0; i < 10; i++)
+{
+    seq[i] = fib(i + 1);
+}
+
+print("Fib seq: {seq}");

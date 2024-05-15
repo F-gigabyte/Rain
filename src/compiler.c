@@ -400,7 +400,6 @@ typedef enum
 {
     JUMP_FORWARD,
     JUMP_BACKWARD,
-    JUMP_CALL,
 } JumpType;
 
 typedef struct {
@@ -420,7 +419,7 @@ typedef struct {
     size_t jump_table_capacity;
     ObjFunc** func_table;
     size_t func_table_size;
-    size_t func_table_cap;
+    size_t func_table_capacity;
     HashTable globals;
 } Compiler;
 
@@ -458,11 +457,11 @@ static void add_jump(size_t from, size_t to, JumpType type)
 
 static void add_func(ObjFunc* func)
 {
-    if(current->func_table_size >= current->func_table_cap)
+    if(current->func_table_size >= current->func_table_capacity)
     {
-        size_t new_cap = GROW_CAPACITY(current->func_table_cap);
-        ObjFunc** next_table = GROW_ARRAY(ObjFunc*, current->func_table, current->func_table_cap, new_cap);
-        current->func_table_cap = new_cap;
+        size_t new_cap = GROW_CAPACITY(current->func_table_capacity);
+        ObjFunc** next_table = GROW_ARRAY(ObjFunc*, current->func_table, current->func_table_capacity, new_cap);
+        current->func_table_capacity = new_cap;
         current->func_table = next_table;
     }
     current->func_table[current->func_table_size] = func;
@@ -516,7 +515,7 @@ static void init_compiler(Compiler* compiler)
     compiler->jump_table_capacity = 0;
     compiler->jump_table_size = 0;
     compiler->func_table = NULL;
-    compiler->func_table_cap = 0;
+    compiler->func_table_capacity = 0;
     compiler->func_table_size = 0;
     init_hash_table(&compiler->globals);
     current = compiler;
@@ -572,6 +571,24 @@ static void emit_inst_line(inst_type inst, size_t line)
     write_chunk(current_chunk(), inst, line);
 }
 
+static size_t make_const(Value value)
+{
+    size_t constant = add_const(current_chunk(), value);
+    return constant;
+}
+
+static void emit_const(Value value)
+{
+    write_chunk_const(current_chunk(), make_const(value), parser.previous.line);
+}
+
+static size_t reserve_const()
+{
+    size_t index = make_const(NULL_VAL);
+    write_chunk_const(current_chunk(), index, parser.previous.line);
+    return index;
+}
+
 static void emit_insts(inst_type inst1, inst_type inst2)
 {
     emit_inst(inst1);
@@ -580,7 +597,14 @@ static void emit_insts(inst_type inst1, inst_type inst2)
 
 static void emit_return()
 {
+    emit_const(NULL_VAL);
+    emit_inst(OP_POP_BASE);
     emit_inst(OP_RETURN);
+}
+
+static void emit_exit()
+{
+    emit_inst(OP_EXIT);
 }
 
 static size_t emit_jump(inst_type type)
@@ -604,14 +628,14 @@ static void emit_loop(size_t loop_start)
 
 static void end_compiler()
 {
-    emit_return();
+    emit_exit();
     FREE(JumpPair, current->jump_table);
     current->jump_table = NULL;
     current->jump_table_capacity = 0;
     current->jump_table_size = 0;
     FREE(ObjFunc*, current->func_table);
     current->func_table = NULL;
-    current->func_table_cap = 0;
+    current->func_table_capacity = 0;
     current->func_table_size = 0;
     free_hash_table(&current->globals);
 #ifdef DEBUG_PRINT_CODE
@@ -622,15 +646,9 @@ static void end_compiler()
 #endif
 }
 
-static size_t make_const(Value value)
+static void emit_call(size_t index)
 {
-    size_t constant = add_const(current_chunk(), value);
-    return constant;
-}
-
-static void emit_const(Value value)
-{
-    write_chunk_const(current_chunk(), make_const(value), parser.previous.line);
+    write_chunk_call(current_chunk(), index, parser.previous.line);
 }
 
 static void emit_get_var(Value value, bool global)
@@ -658,8 +676,8 @@ static void emit_set_var(Value value, bool global)
 }
 
 static void expression();
-static void statement();
-static void declaration();
+static void statement(bool in_func);
+static void declaration(bool in_func);
 
 static ParseRule* get_rule(TokenType type)
 {
@@ -787,6 +805,28 @@ static void binary(bool assignable)
             return;
         }
     }
+}
+
+static size_t push_arguments()
+{
+    size_t args = 0;
+    if(!check(TOKEN_RIGHT_PAREN))
+    {
+        do
+        {
+            expression();
+            args++;
+        } while(match(TOKEN_COMMA));
+    }
+    consume(TOKEN_RIGHT_PAREN, "Expect ')' after arguments");
+    return args;
+}
+
+static void call(bool assignable)
+{
+    emit_inst(OP_PUSH_BASE);
+    size_t inputs = push_arguments();
+    emit_call(inputs);
 }
 
 static void unary(bool assignable)
@@ -1189,11 +1229,11 @@ static void expression()
     parse_precedence(PREC_ASSIGNMENT);
 }
 
-static void block()
+static void block(bool in_func)
 {
     while(!check(TOKEN_RIGHT_BRACE) && !check(TOKEN_EOF))
     {
-        declaration();
+        declaration(in_func);
     }
     consume(TOKEN_RIGHT_BRACE, "Expect '}' after block");
 }
@@ -1209,6 +1249,15 @@ static void end_scope()
     while(current->local_size > 0 && current->locals[current->local_size - 1].depth > current->scope_depth + 1)
     {
         emit_inst(OP_POP);
+        current->local_size--;
+    }
+}
+
+static void end_func_scope()
+{
+    current->scope_depth--;
+    while(current->local_size > 0 && current->locals[current->local_size - 1].depth > current->scope_depth + 1)
+    {
         current->local_size--;
     }
 }
@@ -1258,7 +1307,7 @@ static void print_statement()
     emit_inst(OP_PRINT);
 }
 
-static void if_statement()
+static void if_statement(bool in_func)
 {
     consume(TOKEN_LEFT_PAREN, "Expect '(' after 'if'");
     expression();
@@ -1267,7 +1316,7 @@ static void if_statement()
     size_t then_jump = emit_jump(OP_JUMP_IF_FALSE_BYTE);
     emit_inst(OP_POP);
     begin_scope();
-    block();
+    block(in_func);
     end_scope();
     if(match(TOKEN_ELSE))
     {
@@ -1276,13 +1325,13 @@ static void if_statement()
         emit_inst(OP_POP);
         if(match(TOKEN_IF))
         {
-            if_statement();
+            if_statement(in_func);
         }
         else
         {
             consume(TOKEN_LEFT_BRACE, "Expect '{' after else");
             begin_scope();
-            block();
+            block(in_func);
             end_scope();
         }
         patch_jump(else_jump);
@@ -1294,7 +1343,7 @@ static void if_statement()
     }
 }
 
-static void while_statement()
+static void while_statement(bool in_func)
 {
     size_t loop_start = current_chunk()->size;
     consume(TOKEN_LEFT_PAREN, "Expect '(' after 'while'");
@@ -1304,7 +1353,7 @@ static void while_statement()
     size_t while_jump = emit_jump(OP_JUMP_IF_FALSE_BYTE);
     emit_inst(OP_POP);
     begin_scope();
-    block();
+    block(in_func);
     emit_loop(loop_start);
     end_scope();
     patch_jump(while_jump);
@@ -1318,7 +1367,7 @@ static void expression_statement()
     emit_inst(OP_POP);
 }
 
-static void for_statement()
+static void for_statement(bool in_func)
 {
     begin_scope();
     consume(TOKEN_LEFT_PAREN, "Expect '(' after 'for'");
@@ -1374,7 +1423,7 @@ static void for_statement()
     }
     consume(TOKEN_LEFT_BRACE, "Expect '{' after loop expression");
     begin_scope();
-    block();
+    block(in_func);
     end_scope();
     if(increments)
     {
@@ -1393,7 +1442,26 @@ static void for_statement()
     end_scope();
 }
 
-static void statement()
+static void return_statement(bool in_func)
+{
+    if(!in_func)
+    {
+        error("Can't return from top level code");
+    }
+    if(match(TOKEN_SEMICOLON))
+    {
+        emit_return();
+    }
+    else
+    {
+        expression();
+        emit_inst(OP_POP_BASE);
+        emit_inst(OP_RETURN);
+        consume(TOKEN_SEMICOLON, "Expect ';' after return value");
+    }
+}
+
+static void statement(bool in_func)
 {
     if(match(TOKEN_PRINT))
     {
@@ -1402,20 +1470,24 @@ static void statement()
     else if(match(TOKEN_LEFT_BRACE))
     {
         begin_scope();
-        block();
+        block(in_func);
         end_scope();
     }
     else if(match(TOKEN_IF))
     {
-        if_statement();
+        if_statement(in_func);
     }
     else if(match(TOKEN_WHILE))
     {
-        while_statement();
+        while_statement(in_func);
     }
     else if(match(TOKEN_FOR))
     {
-        for_statement();
+        for_statement(in_func);
+    }
+    else if(match(TOKEN_RET))
+    {
+        return_statement(in_func);
     }
     else
     {
@@ -1456,7 +1528,7 @@ static Value resolve_local(Compiler* compiler, Token* name)
 
 static void add_local(Token name, bool constant)
 {
-    if(current->local_capacity < current->local_size + 1)
+    if(current->local_size >= current->local_capacity)
     {
         size_t next_cap = GROW_CAPACITY(current->local_capacity);
         Local* new_locals = GROW_ARRAY(Local, current->locals, current->local_capacity, next_cap);
@@ -1555,6 +1627,12 @@ static void function(Value val)
     func->defined = true;
     func->num_inputs = 0;
     func->offset = offset;
+    Local* prev_locals = current->locals;
+    size_t prev_local_size = current->local_size;
+    size_t prev_local_cap = current->local_capacity;
+    current->locals = NULL;
+    current->local_capacity = 0;
+    current->local_size = 0;
     begin_scope();
     consume(TOKEN_LEFT_PAREN, "Expect '(' after function name");
     if(!check(TOKEN_RIGHT_PAREN))
@@ -1572,12 +1650,16 @@ static void function(Value val)
     }
     consume(TOKEN_RIGHT_PAREN, "Expect ')' after parameters");
     consume(TOKEN_LEFT_BRACE, "Expect '{' before function body");
-    block();
-    end_scope();
-    emit_inst(OP_RETURN);
+    block(true);
+    emit_return();
+    end_func_scope();
+    FREE(Local, current->locals);
+    current->locals = prev_locals;
+    current->local_size = prev_local_size;
+    current->local_capacity = prev_local_cap;
     patch_jump(from);
-    add_func(func);
     emit_const(OBJ_VAL((Obj*)func));
+    add_func(func);
     if(!IS_NULL(val))
     {
         hash_table_get(&current->globals, func_name, &val);
@@ -1593,7 +1675,7 @@ static void func_declaration()
     function(val);
 }
 
-static void declaration()
+static void declaration(bool in_func)
 {
     if(match(TOKEN_VAR))
     {
@@ -1609,7 +1691,7 @@ static void declaration()
     }
     else
     {
-        statement();
+        statement(in_func);
     }
 
     if(parser.panic_mode)
@@ -1619,7 +1701,7 @@ static void declaration()
 }
 
 ParseRule rules[] = {
-    [TOKEN_LEFT_PAREN]              = {grouping, NULL,   PREC_NONE},
+    [TOKEN_LEFT_PAREN]              = {grouping, call,   PREC_CALL},
     [TOKEN_RIGHT_PAREN]             = {NULL,     NULL,   PREC_NONE},
     [TOKEN_LEFT_BRACE]              = {NULL,     NULL,   PREC_NONE},
     [TOKEN_RIGHT_BRACE]             = {NULL,     NULL,   PREC_NONE},
@@ -1776,6 +1858,24 @@ static void resolve_jump_table(Chunk* obj_chunk, Chunk* res)
             }
         }
     }
+    // sort out functions
+    for(size_t i = 0; i < current->func_table_size; i++)
+    {
+        ObjFunc* func = current->func_table[i];
+        size_t extra_bytes = 0;
+        for(size_t j = 0; j < current->jump_table_size; j++)
+        {
+            if(current->jump_table[j].from >= func->offset)
+            {
+                break;
+            }
+            else
+            {
+                extra_bytes += current->jump_table[j].bytes;
+            }
+        }
+        func->offset += (extra_bytes / sizeof(inst_type));
+    }
     compiling_chunk = res;
     pass_chunk_context(obj_chunk, res);
     size_t jump_index = 0;
@@ -1884,7 +1984,7 @@ bool compile(const char* src, Chunk* chunk, HashTable* global_names)
     
     while(!match(TOKEN_EOF))
     {
-        declaration();
+        declaration(false);
     }
     if(get_scanner_mode() != SCANNER_NORMAL)
     {

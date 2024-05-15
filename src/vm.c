@@ -20,6 +20,7 @@ VM vm;
 static void reset_stack()
 {
     vm.stack_top = vm.stack;
+    vm.stack_base = vm.stack;
 }
 
 static void runtime_error(const char* format, ...)
@@ -48,15 +49,18 @@ static Value peek(int64_t distance)
     return vm.stack_top[-1 - distance];
 }
 
+static Value peek_back(size_t distance)
+{
+    size_t stack_size = vm.stack_top - vm.stack_base;
+    size_t pos = stack_size - 1 - distance;
+    return vm.stack_base[pos];
+}
+
 static void concatenate()
 {
     ObjString* b = AS_STRING(pop());
     ObjString* a = AS_STRING(pop());
-    size_t res_len = a->len + b->len;
-    char* res_chars = ALLOCATE(char, res_len);
-    memcpy(res_chars, a->chars, a->len);
-    memcpy(res_chars + a->len, b->chars, b->len);
-    push(OBJ_VAL((Obj*)take_str(res_chars, res_len)));
+    push(OBJ_VAL((Obj*)concat_str(a, b)));
 }
 
 #define READ_INST() (*(vm.ip++))
@@ -102,6 +106,39 @@ static size_t read_jump(size_t offset_size)
     return offset;
 }
 
+static bool call(ObjFunc* func, size_t args)
+{
+    if(args != func->num_inputs)
+    {
+        runtime_error("Expected %zu args but got %zu", func->num_inputs, args);
+        return false;
+    }
+    vm.stack_base = vm.stack_top - args;
+    vm.stack_base[-2] = INT_VAL((int64_t)(size_t)((vm.ip - vm.chunk->code)));
+    vm.ip = vm.chunk->code + func->offset;
+    return true;
+}
+
+static bool call_value(Value callee, size_t args)
+{
+    if(IS_OBJ(callee))
+    {
+        switch(OBJ_TYPE(callee))
+        {
+            case OBJ_FUNC:
+            {
+                return call(AS_FUNC(callee), args);
+            }
+            default:
+            {
+                break;
+            }
+        }
+    }
+    runtime_error("Calling a variable that isn't a function or class");
+    return false;
+}
+
 #define READ_STRING(offset_size) AS_STRING(read_const(offset_size))
 
 static InterpretResult run()
@@ -110,7 +147,7 @@ static InterpretResult run()
     {
 #ifdef DEBUG_TRACE_EXECUTION
         printf("        ");
-        for(Value* slot = vm.stack; slot < vm.stack_top; slot++)
+        for(Value* slot = vm.stack_base; slot < vm.stack_top; slot++)
         {
             printf("[ ");
             print_value(*slot);
@@ -124,7 +161,14 @@ static InterpretResult run()
         {
             case OP_RETURN:
             {
-                // Exit program
+                vm.ip = vm.chunk->code + (size_t)AS_INT(peek(1));
+                vm.stack_top[-3] = vm.stack_top[-1];
+                pop();
+                pop();
+                break;
+            }
+            case OP_EXIT:
+            {
                 return INTERPRET_OK;
             }
             case OP_CONST_BYTE:
@@ -778,49 +822,49 @@ static InterpretResult run()
             case OP_GET_LOCAL_BYTE:
             {
                 size_t slot = read_inst_index(1);
-                push(vm.stack[slot]);
+                push(vm.stack_base[slot]);
                 break;
             }
             case OP_GET_LOCAL_SHORT:
             {
                 size_t slot = read_inst_index(2);
-                push(vm.stack[slot]);
+                push(vm.stack_base[slot]);
                 break;
             }
             case OP_GET_LOCAL_WORD:
             {
                 size_t slot = read_inst_index(4);
-                push(vm.stack[slot]);
+                push(vm.stack_base[slot]);
                 break;
             }
             case OP_GET_LOCAL_LONG:
             {
                 size_t slot = read_inst_index(8);
-                push(vm.stack[slot]);
+                push(vm.stack_base[slot]);
                 break;
             }
             case OP_SET_LOCAL_BYTE:
             {
                 size_t slot = read_inst_index(1);
-                vm.stack[slot] = peek(0);
+                vm.stack_base[slot] = peek(0);
                 break;
             }
             case OP_SET_LOCAL_SHORT:
             {
                 size_t slot = read_inst_index(2);
-                vm.stack[slot] = peek(0);
+                vm.stack_base[slot] = peek(0);
                 break;
             }
             case OP_SET_LOCAL_WORD:
             {
                 size_t slot = read_inst_index(4);
-                vm.stack[slot] = peek(0);
+                vm.stack_base[slot] = peek(0);
                 break;
             }
             case OP_SET_LOCAL_LONG:
             {
                 size_t slot = read_inst_index(8);
-                vm.stack[slot] = peek(0);
+                vm.stack_base[slot] = peek(0);
                 break;
             }
             case OP_JUMP_IF_FALSE_BYTE:
@@ -1106,6 +1150,57 @@ static InterpretResult run()
                 push(array);
                 break;
             }
+            case OP_CALL_BYTE:
+            {
+                size_t args = read_inst_index(1);
+                if(!call_value(peek_back(args + 2), args))
+                {
+                    return INTERPRET_RUNTIME_ERROR;
+                }
+                break;
+            }
+            case OP_CALL_SHORT:
+            {
+                size_t args = read_inst_index(2);
+                if(!call_value(peek_back(args + 2), args))
+                {
+                    return INTERPRET_RUNTIME_ERROR;
+                }
+                break;
+            }
+            case OP_CALL_WORD:
+            {
+                size_t args = read_inst_index(4);
+                if(!call_value(peek_back(args + 2), args))
+                {
+                    return INTERPRET_RUNTIME_ERROR;
+                }
+                break;
+            }
+            case OP_CALL_LONG:
+            {
+                size_t args = read_inst_index(8);
+                if(!call_value(peek_back(args + 2), args))
+                {
+                    return INTERPRET_RUNTIME_ERROR;
+                }
+                break;
+            }
+            case OP_PUSH_BASE:
+            {
+                push(NULL_VAL);
+                push(INT_VAL((int64_t)(size_t)(vm.stack_base)));
+                break;
+            }
+            case OP_POP_BASE:
+            {
+                Value ret = pop();
+                vm.stack_top = vm.stack_base;
+                Value val = pop();
+                vm.stack_base = (Value*)(size_t)AS_INT(val);
+                push(ret);
+                break;
+            }
             default:
             {
                 runtime_error("Unknown instruction %u", inst);
@@ -1151,7 +1246,7 @@ void push(Value value)
 
 Value pop()
 {
-    if(vm.stack_top == 0)
+    if(vm.stack_top == vm.stack)
     {
         runtime_error("No more values on stack");
         return NULL_VAL;

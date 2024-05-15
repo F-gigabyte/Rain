@@ -81,6 +81,11 @@ void write_chunk_const(Chunk* chunk, size_t const_index, size_t line)
     write_chunk_const_impl(chunk, const_index, line, OP_CONST_BYTE, OP_CONST_SHORT, OP_CONST_WORD, OP_CONST_LONG);
 }
 
+void write_chunk_call(Chunk* chunk, size_t const_index, size_t line)
+{
+    write_chunk_const_impl(chunk, const_index, line, OP_CALL_BYTE, OP_CALL_SHORT, OP_CALL_WORD, OP_CALL_LONG);
+}
+
 void write_chunk_get_global_var(Chunk* chunk, size_t const_index, size_t line)
 {
     write_chunk_const_impl(chunk, const_index, line, OP_GET_GLOBAL_BYTE, OP_GET_GLOBAL_SHORT, OP_GET_GLOBAL_WORD, OP_GET_GLOBAL_LONG);

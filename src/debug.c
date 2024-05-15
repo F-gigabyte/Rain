@@ -261,19 +261,19 @@ size_t disassemble_inst(Chunk* chunk, size_t offset)
         }
         case OP_SET_LOCAL_BYTE:
         {
-            return index_inst("OP_GET_LOCAL_BYTE", chunk, 1, offset);
+            return index_inst("OP_SET_LOCAL_BYTE", chunk, 1, offset);
         }
         case OP_SET_LOCAL_SHORT:
         {
-            return index_inst("OP_GET_LOCAL_SHORT", chunk, 2, offset);
+            return index_inst("OP_SET_LOCAL_SHORT", chunk, 2, offset);
         }
         case OP_SET_LOCAL_WORD:
         {
-            return index_inst("OP_GET_LOCAL_WORD", chunk, 4, offset);
+            return index_inst("OP_SET_LOCAL_WORD", chunk, 4, offset);
         }
         case OP_SET_LOCAL_LONG:
         {
-            return index_inst("OP_GET_LOCAL_LONG", chunk, 8, offset);
+            return index_inst("OP_SET_LOCAL_LONG", chunk, 8, offset);
         }
         case OP_JUMP_IF_FALSE_BYTE:
         {
@@ -358,6 +358,34 @@ size_t disassemble_inst(Chunk* chunk, size_t offset)
         case OP_INDEX_PEEK:
         {
             return simple_inst("OP_INDEX_PEEK", offset);
+        }
+        case OP_CALL_BYTE:
+        {
+           return index_inst("OP_CALL_BYTE", chunk, 1, offset); 
+        }
+        case OP_CALL_SHORT:
+        {
+           return index_inst("OP_CALL_SHORT", chunk, 2, offset); 
+        }
+        case OP_CALL_WORD:
+        {
+           return index_inst("OP_CALL_WORD", chunk, 4, offset); 
+        }
+        case OP_CALL_LONG:
+        {
+           return index_inst("OP_CALL_LONG", chunk, 8, offset); 
+        }
+        case OP_PUSH_BASE:
+        {
+            return simple_inst("OP_PUSH_BASE", offset);
+        }
+        case OP_POP_BASE:
+        {
+            return simple_inst("OP_POP_BASE", offset);
+        }
+        case OP_EXIT:
+        {
+            return simple_inst("OP_EXIT", offset);
         }
         default:
         {

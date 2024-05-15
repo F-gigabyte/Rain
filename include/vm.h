@@ -11,6 +11,7 @@ typedef struct {
     Chunk* chunk;
     inst_type* ip;
     Value stack[STACK_MAX];
+    Value* stack_base;
     Value* stack_top;
     HashTable strings;
     Obj* objects;
