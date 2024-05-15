@@ -27,7 +27,7 @@ extern VM vm;
 // initialises virtual machine
 void init_vm();
 // interprets a chunk
-InterpretResult interpret(const char* src, HashTable* global_names, ValueArray* globals);
+InterpretResult interpret(const char* src, HashTable* global_names, Chunk* main_chunk);
 // push value onto stack
 void push(Value value);
 // pop value from stack

@@ -58,6 +58,14 @@ static size_t jump_inst(const char* name, int8_t sign, Chunk* chunk, size_t off_
 
 size_t disassemble_inst(Chunk* chunk, size_t offset)
 {
+    if(offset == chunk->entry)
+    {
+        printf("->");
+    }
+    else
+    {
+        printf("  ");
+    }
     printf("%04zu ", offset);
     size_t current_line = get_line_number(&chunk->line_encoding, offset);
     if(offset > 0)

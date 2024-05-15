@@ -1166,38 +1166,27 @@ static InterpretResult run()
 #undef READ_INST
 #undef READ_STRING
 
-InterpretResult interpret(const char* src, HashTable* global_names, ValueArray* globals)
+InterpretResult interpret(const char* src, HashTable* global_names, Chunk* main_chunk)
 {
     Chunk chunk;
     init_chunk(&chunk);
-    if(globals)
+    if(main_chunk == NULL)
     {
-        chunk.globals = *globals;
+        vm.chunk = &chunk;
     }
-    if(!compile(src, &chunk, global_names))
+    else
     {
-        if(globals)
-        {
-            *globals = chunk.globals;
-            chunk.globals.values = NULL;
-            chunk.globals.size = 0;
-            chunk.globals.capacity = 0;
-        }
+        vm.chunk = main_chunk;
+        vm.chunk->entry = vm.chunk->size;
+    }
+    if(!compile(src, vm.chunk, global_names))
+    {
         free_chunk(&chunk);
         return INTERPRET_COMPILE_ERROR;
     }
-    vm.chunk = &chunk;
-    vm.ip = vm.chunk->code;
+    vm.ip = vm.chunk->code + vm.chunk->entry;
 
     InterpretResult res = run();
-
-    if(globals)
-    {
-        *globals = chunk.globals;
-        chunk.globals.values = NULL;
-        chunk.globals.size = 0;
-        chunk.globals.capacity = 0;
-    }
     free_chunk(&chunk);
     return res;
 }

@@ -6,9 +6,9 @@
 
 static void repl()
 {
-    ValueArray globals;
+    Chunk main_chunk;
     HashTable global_names;
-    init_value_array(&globals);
+    init_chunk(&main_chunk);
     init_hash_table(&global_names);
     for(;;)
     {
@@ -26,7 +26,7 @@ static void repl()
             free(line);
             break;
         }
-        interpret(line, &global_names, &globals);
+        interpret(line, &global_names, &main_chunk);
         free(line);
     }
 }

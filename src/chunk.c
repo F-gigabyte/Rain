@@ -6,6 +6,7 @@ void init_chunk(Chunk* chunk)
     chunk->start_line = 0;
     chunk->capacity = 0;
     chunk->size = 0;
+    chunk->entry = 0;
     chunk->code = NULL;
     init_line_array(&chunk->line_encoding);
     init_value_array(&chunk->consts);
@@ -112,6 +113,14 @@ size_t read_chunk_const(inst_type* inst, size_t* offset, size_t off_size)
     }
     *offset = index_size;
     return constant;
+}
+
+void pass_chunk_context(Chunk* from, Chunk* to)
+{
+    to->consts = from->consts;
+    to->globals = from->globals;
+    from->consts = (ValueArray){.values = NULL, .capacity = 0, .size = 0};
+    from->globals = (ValueArray){.values = NULL, .capacity = 0, .size = 0};
 }
 
 void free_chunk(Chunk* chunk)

@@ -1703,8 +1703,7 @@ static void resolve_jump_table(Chunk* obj_chunk, Chunk* res)
         }
     }
     compiling_chunk = res;
-    res->consts = obj_chunk->consts;
-    res->globals = obj_chunk->globals;
+    pass_chunk_context(obj_chunk, res);
     size_t jump_index = 0;
     for(size_t i = 0; i < obj_chunk->size; i++)
     {
@@ -1800,7 +1799,7 @@ bool compile(const char* src, Chunk* chunk, HashTable* global_names)
     if(global_names)
     {
         compiler.globals = *global_names;
-        obj_chunk.globals = chunk->globals;
+        pass_chunk_context(chunk, &obj_chunk);
     }
     compiling_chunk = &obj_chunk;
 

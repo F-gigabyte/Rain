@@ -84,6 +84,7 @@ typedef struct
     size_t start_line;
     size_t size;
     size_t capacity;
+    size_t entry;
     inst_type* code;
     LineArray line_encoding;
     ValueArray consts;
@@ -110,5 +111,7 @@ void write_chunk_set_local_var(Chunk* chunk, size_t const_index, size_t line);
 size_t read_chunk_const(inst_type* inst, size_t* offset, size_t off_size);
 // frees a chunk of bytecode
 void free_chunk(Chunk* chunk);
+// passes global variables and constants between chunks
+void pass_chunk_context(Chunk* from, Chunk* to);
 
 #endif
