@@ -359,21 +359,9 @@ size_t disassemble_inst(Chunk* chunk, size_t offset)
         {
             return simple_inst("OP_INDEX_PEEK", offset);
         }
-        case OP_CALL_BYTE:
+        case OP_CALL:
         {
-           return index_inst("OP_CALL_BYTE", chunk, 1, offset); 
-        }
-        case OP_CALL_SHORT:
-        {
-           return index_inst("OP_CALL_SHORT", chunk, 2, offset); 
-        }
-        case OP_CALL_WORD:
-        {
-           return index_inst("OP_CALL_WORD", chunk, 4, offset); 
-        }
-        case OP_CALL_LONG:
-        {
-           return index_inst("OP_CALL_LONG", chunk, 8, offset); 
+           return simple_inst("OP_CALL", offset); 
         }
         case OP_PUSH_BASE:
         {

@@ -77,10 +77,7 @@ typedef enum
     OP_INDEX_GET,
     OP_INDEX_PEEK,
     OP_INDEX_SET,
-    OP_CALL_BYTE,
-    OP_CALL_SHORT,
-    OP_CALL_WORD,
-    OP_CALL_LONG,
+    OP_CALL,
     OP_PUSH_BASE,
     OP_POP_BASE,
     OP_EXIT,
@@ -106,8 +103,6 @@ void write_chunk(Chunk* chunk, inst_type inst, size_t line);
 size_t add_const(Chunk* chunk, Value value);
 // writes a constant instruction to the bytecode
 void write_chunk_const(Chunk* chunk, size_t const_index, size_t line);
-// writes a call instruction to the bytecode
-void write_chunk_call(Chunk* chunk, size_t const_index, size_t line);
 // writes a get global instruction to the bytecode
 void write_chunk_get_global_var(Chunk* chunk, size_t const_index, size_t line);
 // writes a set global instruction to the bytecode

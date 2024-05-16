@@ -646,11 +646,6 @@ static void end_compiler()
 #endif
 }
 
-static void emit_call(size_t index)
-{
-    write_chunk_call(current_chunk(), index, parser.previous.line);
-}
-
 static void emit_get_var(Value value, bool global)
 {
     if(global)
@@ -826,7 +821,7 @@ static void call(bool assignable)
 {
     emit_inst(OP_PUSH_BASE);
     size_t inputs = push_arguments();
-    emit_call(inputs);
+    emit_inst(OP_CALL);
 }
 
 static void unary(bool assignable)

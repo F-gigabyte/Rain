@@ -21,6 +21,7 @@ static void reset_stack()
 {
     vm.stack_top = vm.stack;
     vm.stack_base = vm.stack;
+    vm.next_stack_base = vm.stack;
 }
 
 static void runtime_error(const char* format, ...)
@@ -106,20 +107,21 @@ static size_t read_jump(size_t offset_size)
     return offset;
 }
 
-static bool call(ObjFunc* func, size_t args)
+static bool call(ObjFunc* func)
 {
+    vm.stack_base = vm.next_stack_base;
+    size_t args = (size_t)(vm.stack_top - vm.stack_base);
     if(args != func->num_inputs)
     {
         runtime_error("Expected %zu args but got %zu", func->num_inputs, args);
         return false;
     }
-    vm.stack_base = vm.stack_top - args;
     vm.stack_base[-2] = INT_VAL((int64_t)(size_t)((vm.ip - vm.chunk->code)));
     vm.ip = vm.chunk->code + func->offset;
     return true;
 }
 
-static bool call_value(Value callee, size_t args)
+static bool call_value(Value callee)
 {
     if(IS_OBJ(callee))
     {
@@ -127,7 +129,7 @@ static bool call_value(Value callee, size_t args)
         {
             case OBJ_FUNC:
             {
-                return call(AS_FUNC(callee), args);
+                return call(AS_FUNC(callee));
             }
             default:
             {
@@ -1150,37 +1152,9 @@ static InterpretResult run()
                 push(array);
                 break;
             }
-            case OP_CALL_BYTE:
+            case OP_CALL:
             {
-                size_t args = read_inst_index(1);
-                if(!call_value(peek_back(args + 2), args))
-                {
-                    return INTERPRET_RUNTIME_ERROR;
-                }
-                break;
-            }
-            case OP_CALL_SHORT:
-            {
-                size_t args = read_inst_index(2);
-                if(!call_value(peek_back(args + 2), args))
-                {
-                    return INTERPRET_RUNTIME_ERROR;
-                }
-                break;
-            }
-            case OP_CALL_WORD:
-            {
-                size_t args = read_inst_index(4);
-                if(!call_value(peek_back(args + 2), args))
-                {
-                    return INTERPRET_RUNTIME_ERROR;
-                }
-                break;
-            }
-            case OP_CALL_LONG:
-            {
-                size_t args = read_inst_index(8);
-                if(!call_value(peek_back(args + 2), args))
+                if(!call_value(vm.next_stack_base[-3]))
                 {
                     return INTERPRET_RUNTIME_ERROR;
                 }
@@ -1190,6 +1164,7 @@ static InterpretResult run()
             {
                 push(NULL_VAL);
                 push(INT_VAL((int64_t)(size_t)(vm.stack_base)));
+                vm.next_stack_base = vm.stack_top;
                 break;
             }
             case OP_POP_BASE:
