@@ -245,6 +245,13 @@ ObjString* obj_to_str(Value value)
             snprintf(res_chars, len + 1, "<func %s (args: %zu): %zu>", AS_FUNC(value)->name->chars, AS_FUNC(value)->num_inputs, AS_FUNC(value)->offset);
             return take_str(res_chars, len);
         }
+        case OBJ_NATIVE:
+        {
+            size_t len = snprintf(NULL, 0, "<native func %s (args: %zu): external>", AS_NATIVE(value)->name->chars, AS_NATIVE(value)->num_inputs);
+            char* res_chars = ALLOCATE(char, len + 1);
+            snprintf(res_chars, len + 1, "<native func %s (args: %zu): external>", AS_NATIVE(value)->name->chars, AS_NATIVE(value)->num_inputs);
+            return take_str(res_chars, len);
+        }
         default:
         {
             return copy_str("Unknown Object", 14);
@@ -282,3 +289,13 @@ ObjFunc* new_func()
     func->offset = 0;
     return func;
 }
+
+ObjNative* new_native(NativeFn func, ObjString* name, size_t args)
+{
+    ObjNative* native = ALLOCATE_OBJ(ObjNative, OBJ_NATIVE);
+    native->func = func;
+    native->name = name;
+    native->num_inputs = args;
+    return native;
+}
+

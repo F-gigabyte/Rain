@@ -8,6 +8,7 @@
 #include <convert.h>
 #include <rain_memory.h>
 #include <string.h>
+#include <natives.h>
 
 #ifdef DEBUG_PRINT_CODE
 #include <debug.h>
@@ -1957,6 +1958,19 @@ static void resolve_jump_table(Chunk* obj_chunk, Chunk* res)
     }
 }
 
+static void define_native(const char* name, NativeFn func, size_t args)
+{
+    ObjString* func_name = copy_str(name, strlen(name));
+    Value pos = add_global(OBJ_VAL((Obj*)func_name), true);
+    current_chunk()->globals.values[(size_t)AS_INT(pos)] = OBJ_VAL((Obj*)new_native(func, func_name, args));
+}
+
+
+static void define_natives()
+{
+    define_native("time", time_native, 0);
+}
+
 bool compile(const char* src, Chunk* chunk, HashTable* global_names)
 {
     init_scanner(src);
@@ -1969,8 +1983,13 @@ bool compile(const char* src, Chunk* chunk, HashTable* global_names)
     {
         compiler.globals = *global_names;
         pass_chunk_context(chunk, &obj_chunk);
+        compiling_chunk = &obj_chunk;
     }
-    compiling_chunk = &obj_chunk;
+    else
+    {
+        compiling_chunk = &obj_chunk;
+        define_natives();
+    }
 
     parser.had_error = false;
     parser.panic_mode = false;

@@ -5,7 +5,7 @@
 #include <value.h>
 #include <hash_table.h>
 
-#define STACK_MAX (4096 / sizeof(Value))
+#define STACK_MAX (32768 / sizeof(Value))
 
 typedef struct {
     Chunk* chunk;

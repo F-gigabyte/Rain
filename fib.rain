@@ -1,3 +1,4 @@
+const start = time();
 func fib(n)
 {
     if(n <= 0)
@@ -14,10 +15,6 @@ func fib(n)
     }
 }
 
-const seq = array[40];
-for(var i = 0; i < 40; i++)
-{
-    seq[i] = fib(i + 1);
-}
-
-print("Fib seq: {seq}");
+print("fib(35): {fib(35)}");
+const end = time();
+print("Executed in {(end - start) / 1000000000.0} seconds");

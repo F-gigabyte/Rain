@@ -1,9 +1,11 @@
-const max = 100;
+const max = 1000;
+var value = 0;
 for(var i = 1; i <= max; i++)
 {
-    print("i is {i}");
+    value++;
     for(var j = 1; j <= max; j++)
     {
-        print("j is {j}");
+        value++;    
     }
 }
+print(value);

@@ -40,6 +40,12 @@ static void free_obj(Obj* obj)
             FREE(ObjFunc, func);
             break;
         }
+        case OBJ_NATIVE:
+        {
+            ObjNative* native = (ObjNative*)obj;
+            FREE(ObjNative, native);
+            break;
+        }
         default:
         {
             break;

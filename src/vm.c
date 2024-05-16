@@ -107,18 +107,22 @@ static size_t read_jump(size_t offset_size)
     return offset;
 }
 
-static bool call(ObjFunc* func)
+static bool setup_call(size_t expected_inputs)
 {
     vm.stack_base = vm.next_stack_base;
     size_t args = (size_t)(vm.stack_top - vm.stack_base);
-    if(args != func->num_inputs)
+    if(args != expected_inputs)
     {
-        runtime_error("Expected %zu args but got %zu", func->num_inputs, args);
+        runtime_error("Expected %zu args but got %zu", expected_inputs, args);
         return false;
     }
     vm.stack_base[-2] = INT_VAL((int64_t)(size_t)((vm.ip - vm.chunk->code)));
-    vm.ip = vm.chunk->code + func->offset;
     return true;
+}
+
+static void call(ObjFunc* func)
+{
+    vm.ip = vm.chunk->code + func->offset;
 }
 
 static bool call_value(Value callee)
@@ -129,7 +133,24 @@ static bool call_value(Value callee)
         {
             case OBJ_FUNC:
             {
-                return call(AS_FUNC(callee));
+                ObjFunc* func = AS_FUNC(callee);
+                if(!setup_call(func->num_inputs))
+                {
+                    return false;
+                }
+                call(func);
+                return true;
+            }
+            case OBJ_NATIVE:
+            {
+                ObjNative* native = AS_NATIVE(callee);
+                if(!setup_call(native->num_inputs))
+                {
+                    return false;
+                }
+                Value result = native->func(vm.stack_base);
+                push(result);
+                return true;
             }
             default:
             {
