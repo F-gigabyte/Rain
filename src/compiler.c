@@ -2121,7 +2121,13 @@ bool compile(const char* src, Chunk* chunk, HashTable* global_names)
     init_chunk(&obj_chunk);
     if(global_names)
     {
-        compiler.globals = *global_names;
+        compiler.globals.entries = ALLOCATE(Entry, global_names->capacity);
+        for(size_t i = 0; i < global_names->capacity; i++)
+        {
+           compiler.globals.entries[i] = global_names->entries[i]; 
+        }
+        compiler.globals.count = global_names->count;
+        compiler.globals.capacity = global_names->capacity;
         copy_chunk_context(chunk, &obj_chunk);
     }
     compiling_chunk = &obj_chunk;
@@ -2169,6 +2175,7 @@ bool compile(const char* src, Chunk* chunk, HashTable* global_names)
     {
         if(!parser.had_error)
         {
+            free_hash_table(global_names);
             *global_names = compiler.globals;
         }
         compiler.globals.entries = NULL;
