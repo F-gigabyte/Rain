@@ -9,6 +9,8 @@
 #define IS_ARRAY(value) is_obj_type(value, OBJ_ARRAY)
 #define IS_FUNC(value) is_obj_type(value, OBJ_FUNC)
 #define IS_NATIVE(value) is_obj_type(value, OBJ_NATIVE)
+#define IS_CLOSURE(value) is_obj_type(value, OBJ_CLOSURE)
+#define IS_UPVALUE(value) is_obj_type(value, OBJ_UPVALUE)
 
 #define AS_STRING(value)  ((ObjString*)AS_OBJ(value))
 #define AS_CSTRING(value) (((ObjString*)AS_OBJ(value))->chars)
@@ -18,12 +20,16 @@
 
 #define AS_FUNC(value) ((ObjFunc*)AS_OBJ(value))
 #define AS_NATIVE(value) ((ObjNative*)AS_OBJ(value))
+#define AS_CLOSURE(value) ((ObjClosure*)AS_OBJ(value))
+#define AS_UPVALUE(value) ((ObjUpvalue*)AS_OBJ(value))
 
 typedef enum {
     OBJ_STRING,
     OBJ_ARRAY,
     OBJ_FUNC,
-    OBJ_NATIVE
+    OBJ_NATIVE,
+    OBJ_CLOSURE,
+    OBJ_UPVALUE,
 } ObjType;
 
 struct Obj {
@@ -53,6 +59,33 @@ typedef struct
     bool defined;
 } ObjFunc;
 
+typedef struct
+{
+    Obj obj;
+    Value* value;
+    struct ObjUpvalue* next;
+    Value closed;
+} ObjUpvalue;
+
+typedef struct
+{
+    size_t index;
+    bool local;
+} UpvalueIndex;
+
+typedef struct
+{
+    Obj obj;
+    ObjFunc* func;
+    size_t num_upvalues;
+    bool loaded;
+    union
+    {
+        ObjUpvalue* upvalue;
+        UpvalueIndex indexes;
+    } upvalues[];
+} ObjClosure;
+
 typedef Value (*NativeFn)(Value* args);
 
 typedef struct
@@ -74,6 +107,8 @@ ObjString* concat_str(ObjString* a, ObjString* b);
 ObjArray* build_array(int64_t len, Value val);
 ObjArray* fill_array(int64_t len, Value* values);
 ObjFunc* new_func();
+ObjClosure* new_closure(ObjFunc* func, size_t num_upvalues);
+ObjUpvalue* new_upvalue(Value* loc);
 ObjNative* new_native(NativeFn func, ObjString* name, size_t args);
 ObjString* obj_to_str(Value value);
 

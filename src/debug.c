@@ -243,6 +243,38 @@ size_t disassemble_inst(Chunk* chunk, size_t offset)
         {
             return index_inst("OP_SET_GLOBAL_LONG", chunk, 8, offset);
         }
+        case OP_GET_UPVALUE_BYTE:
+        {
+            return index_inst("OP_GET_UPVALUE_BYTE", chunk, 1, offset);
+        }
+        case OP_GET_UPVALUE_SHORT:
+        {
+            return index_inst("OP_GET_UPVALUE_SHORT", chunk, 2, offset);
+        }
+        case OP_GET_UPVALUE_WORD:
+        {
+            return index_inst("OP_GET_UPVALUE_WORD", chunk, 4, offset);
+        }
+        case OP_GET_UPVALUE_LONG:
+        {
+            return index_inst("OP_GET_UPVALUE_LONG", chunk, 8, offset);
+        }
+        case OP_SET_UPVALUE_BYTE:
+        {
+            return index_inst("OP_GET_UPVALUE_BYTE", chunk, 1, offset);
+        }
+        case OP_SET_UPVALUE_SHORT:
+        {
+            return index_inst("OP_GET_UPVALUE_SHORT", chunk, 2, offset);
+        }
+        case OP_SET_UPVALUE_WORD:
+        {
+            return index_inst("OP_GET_UPVALUE_WORD", chunk, 4, offset);
+        }
+        case OP_SET_UPVALUE_LONG:
+        {
+            return index_inst("OP_GET_UPVALUE_LONG", chunk, 8, offset);
+        }
         case OP_GET_LOCAL_BYTE:
         {
             return index_inst("OP_GET_LOCAL_BYTE", chunk, 1, offset);
@@ -370,6 +402,26 @@ size_t disassemble_inst(Chunk* chunk, size_t offset)
         case OP_POP_BASE:
         {
             return simple_inst("OP_POP_BASE", offset);
+        }
+        case OP_CLOSURE_BYTE:
+        {
+            return const_inst("OP_CLOSURE_BYTE", chunk, 1, offset);
+        }
+        case OP_CLOSURE_SHORT:
+        {
+            return const_inst("OP_CLOSURE_SHORT", chunk, 2, offset);
+        }
+        case OP_CLOSURE_WORD:
+        {
+            return const_inst("OP_CLOSURE_WORD", chunk, 4, offset);
+        }
+        case OP_CLOSURE_LONG:
+        {
+            return const_inst("OP_CLOSURE_LONG", chunk, 8, offset);
+        }
+        case OP_CLOSE_UPVALUE:
+        {
+            return simple_inst("OP_CLOSE_UPVALUE", offset);
         }
         case OP_EXIT:
         {

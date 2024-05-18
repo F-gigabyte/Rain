@@ -3,6 +3,7 @@
 
 #include <chunk.h>
 #include <value.h>
+#include <object.h>
 #include <hash_table.h>
 
 #define STACK_MAX (32768 / sizeof(Value))
@@ -14,8 +15,10 @@ typedef struct {
     Value* stack_base;
     Value* stack_top;
     Value* next_stack_base;
+    Value* searched;
     HashTable strings;
     Obj* objects;
+    ObjUpvalue* open_upvalues;
 } VM;
 
 typedef enum {

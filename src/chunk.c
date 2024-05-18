@@ -90,6 +90,15 @@ void write_chunk_set_global_var(Chunk* chunk, size_t const_index, size_t line)
 {
     write_chunk_const_impl(chunk, const_index, line, OP_SET_GLOBAL_BYTE, OP_SET_GLOBAL_SHORT, OP_SET_GLOBAL_WORD, OP_SET_GLOBAL_LONG);
 }
+void write_chunk_get_upvalue(Chunk* chunk, size_t const_index, size_t line)
+{
+    write_chunk_const_impl(chunk, const_index, line, OP_GET_UPVALUE_BYTE, OP_GET_UPVALUE_SHORT, OP_GET_UPVALUE_WORD, OP_GET_UPVALUE_LONG);
+}
+
+void write_chunk_set_upvalue(Chunk* chunk, size_t const_index, size_t line)
+{
+    write_chunk_const_impl(chunk, const_index, line, OP_SET_UPVALUE_BYTE, OP_SET_UPVALUE_SHORT, OP_SET_UPVALUE_WORD, OP_SET_UPVALUE_LONG);
+}
 
 void write_chunk_get_local_var(Chunk* chunk, size_t const_index, size_t line)
 {
@@ -99,6 +108,11 @@ void write_chunk_get_local_var(Chunk* chunk, size_t const_index, size_t line)
 void write_chunk_set_local_var(Chunk* chunk, size_t const_index, size_t line)
 {
     write_chunk_const_impl(chunk, const_index, line, OP_SET_LOCAL_BYTE, OP_SET_LOCAL_SHORT, OP_SET_LOCAL_WORD, OP_SET_LOCAL_LONG);
+}
+
+void write_chunk_closure(Chunk* chunk, size_t const_index, size_t line)
+{
+    write_chunk_const_impl(chunk, const_index, line, OP_CLOSURE_BYTE, OP_CLOSURE_SHORT, OP_CLOSURE_WORD, OP_CLOSURE_LONG);
 }
 
 size_t read_chunk_const(inst_type* inst, size_t* offset, size_t off_size)

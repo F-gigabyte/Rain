@@ -34,11 +34,11 @@ typedef struct
 
 bool values_eql(Value a, Value b);
 
-#define BOOL_VAL(value)  ((Value){VAL_BOOL, {.bool_data = value}})
-#define INT_VAL(value)   ((Value){VAL_INT,  {.int_data = value}})
-#define FLOAT_VAL(value) ((Value){VAL_FLOAT, {.float_data = value}})
-#define OBJ_VAL(value)   ((Value){VAL_OBJ, {.obj_data = value}})
-#define NULL_VAL         ((Value){VAL_NULL, {.int_data = 0}}) 
+#define BOOL_VAL(value)  ((Value){.type = VAL_BOOL, {.bool_data = value}})
+#define INT_VAL(value)   ((Value){.type = VAL_INT,  {.int_data = value}})
+#define FLOAT_VAL(value) ((Value){.type = VAL_FLOAT, {.float_data = value}})
+#define OBJ_VAL(value)   ((Value){.type = VAL_OBJ, {.obj_data = value}})
+#define NULL_VAL         ((Value){.type = VAL_NULL, {.int_data = 0}}) 
 
 #define AS_BOOL(value)   ((value).as.bool_data)
 #define AS_INT(value)    ((value).as.int_data)

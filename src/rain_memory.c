@@ -46,6 +46,18 @@ static void free_obj(Obj* obj)
             FREE(ObjNative, native);
             break;
         }
+        case OBJ_CLOSURE:
+        {
+            ObjClosure* closure = (ObjClosure*)obj;
+            FREE(ObjClosure, closure);
+            break;
+        }
+        case OBJ_UPVALUE:
+        {
+            ObjUpvalue* upvalue = (ObjUpvalue*)obj;
+            FREE(ObjUpvalue, upvalue);
+            break;
+        }
         default:
         {
             break;

@@ -14,8 +14,6 @@
 #include <debug.h>
 #endif
 
-#define MAXOFFSET 0xffffffff
-
 #ifdef DEBUG_TOKEN_TYPES
 
 static const char* token_type_str(TokenType type)
@@ -394,8 +392,24 @@ typedef struct {
 typedef struct {
     Token name;
     bool constant;
+    bool captured;
     size_t depth;
 } Local;
+
+typedef struct {
+    size_t index;
+    bool constant;
+    bool local;
+} Upvalue;
+
+typedef struct {
+    Local* locals;
+    size_t locals_size;
+    size_t locals_capacity;
+    Upvalue* upvalues;
+    size_t upvalues_size;
+    size_t upvalues_capacity;
+} Scope;
 
 typedef enum
 {
@@ -411,9 +425,10 @@ typedef struct {
 } JumpPair;
 
 typedef struct {
-    Local* locals;
-    size_t local_size;
-    size_t local_capacity;
+    Scope scope;
+    Scope* prev_scopes;
+    size_t prev_scopes_size;
+    size_t prev_scopes_capacity;
     size_t scope_depth;
     JumpPair* jump_table;
     size_t jump_table_size;
@@ -508,9 +523,15 @@ static void error_at_current(const char* msg)
 
 static void init_compiler(Compiler* compiler)
 {
-    compiler->local_size = 0;
-    compiler->local_capacity = 0;
-    compiler->locals = NULL;
+    compiler->scope.locals_size = 0;
+    compiler->scope.locals_capacity = 0;
+    compiler->scope.locals = NULL;
+    compiler->scope.upvalues_size = 0;
+    compiler->scope.upvalues_capacity = 0;
+    compiler->scope.upvalues = NULL;
+    compiler->prev_scopes = NULL;
+    compiler->prev_scopes_size = 0;
+    compiler->prev_scopes_capacity = 0;
     compiler->scope_depth = 0;
     compiler->jump_table = NULL;
     compiler->jump_table_capacity = 0;
@@ -583,6 +604,17 @@ static void emit_const(Value value)
     write_chunk_const(current_chunk(), make_const(value), parser.previous.line);
 }
 
+static void emit_closure(ObjFunc* func)
+{
+    ObjClosure* closure = new_closure(func, current->scope.upvalues_size);
+    for(size_t i = 0; i < current->scope.upvalues_size; i++)
+    {
+        closure->upvalues[i].indexes.index = current->scope.upvalues[i].index;
+        closure->upvalues[i].indexes.local = current->scope.upvalues[i].local;
+    }
+    write_chunk_closure(current_chunk(), make_const(OBJ_VAL((Obj*)closure)), parser.previous.line);
+}
+
 static size_t reserve_const()
 {
     size_t index = make_const(NULL_VAL);
@@ -638,6 +670,20 @@ static void end_compiler()
     current->func_table = NULL;
     current->func_table_capacity = 0;
     current->func_table_size = 0;
+    FREE(Local, current->scope.locals);
+    current->scope.locals_size = 0;
+    current->scope.locals_capacity = 0;
+    FREE(Upvalue, current->scope.upvalues);
+    current->scope.upvalues_size = 0;
+    current->scope.upvalues_capacity = 0;
+    for(size_t i = 0; i < current->prev_scopes_size; i++)
+    {
+        FREE(Local, current->prev_scopes[i].locals);
+        FREE(Upvalue, current->prev_scopes[i].upvalues);
+    }
+    FREE(Scope, current->prev_scopes);
+    current->prev_scopes_size = 0;
+    current->prev_scopes_capacity = 0;
     free_hash_table(&current->globals);
 #ifdef DEBUG_PRINT_CODE
     if(!parser.had_error)
@@ -647,11 +693,15 @@ static void end_compiler()
 #endif
 }
 
-static void emit_get_var(Value value, bool global)
+static void emit_get_var(Value value, bool upvalue, bool global)
 {
     if(global)
     {
         write_chunk_get_global_var(current_chunk(), (size_t)AS_INT(value), parser.previous.line);
+    }
+    else if(upvalue)
+    {
+        write_chunk_get_upvalue(current_chunk(), (size_t)AS_INT(value), parser.previous.line);
     }
     else
     {
@@ -659,9 +709,13 @@ static void emit_get_var(Value value, bool global)
     }
 }
 
-static void emit_set_var(Value value, bool global)
+static void emit_set_var(Value value, bool upvalue, bool global)
 {
     if(global)
+    {
+        write_chunk_set_global_var(current_chunk(), (size_t)AS_INT(value), parser.previous.line);
+    }
+    else if(upvalue)
     {
         write_chunk_set_global_var(current_chunk(), (size_t)AS_INT(value), parser.previous.line);
     }
@@ -1054,7 +1108,8 @@ static void string(bool assignable)
 }
 
 static Value ident_constant(Token* name);
-static Value resolve_local(Compiler* compiler, Token* name);
+static Value resolve_local(Scope* scope, Token* name);
+static Value resolve_upvalue(Token* name, Scope* scope, size_t index);
 
 #define EMIT_ASSIGNMENT(get_var) \
 { \
@@ -1140,35 +1195,52 @@ static Value resolve_local(Compiler* compiler, Token* name);
 static void named_variable(Token name, bool assignable)
 {
     bool global = false;
+    bool upvalue = false;
     bool constant = false;
-    Value arg = resolve_local(current, &name);
+    Value arg = resolve_local(&current->scope, &name);
     if(IS_NULL(arg))
     {
-        global = true;
-        Value global_name = ident_constant(&name);
-        if(!hash_table_get(&current->globals, AS_STRING(global_name), &arg))
+        arg = resolve_upvalue(&name, &current->scope, current->prev_scopes_size);
+        if(IS_NULL(arg))
         {
-            size_t len = snprintf(NULL, 0, "Undefined variable '%s'", AS_CSTRING(global_name));
-            char* buffer = ALLOCATE(char, len + 1);
-            snprintf(buffer, len + 1, "Undefined variable '%s'", AS_CSTRING(global_name));
-            error(buffer);
-            FREE(char, buffer);
-            return;
+            global = true;
+            Value global_name = ident_constant(&name);
+            if(!hash_table_get(&current->globals, AS_STRING(global_name), &arg))
+            {
+                size_t len = snprintf(NULL, 0, "Undefined variable '%s'", AS_CSTRING(global_name));
+                char* buffer = ALLOCATE(char, len + 1);
+                snprintf(buffer, len + 1, "Undefined variable '%s'", AS_CSTRING(global_name));
+                error(buffer);
+                FREE(char, buffer);
+                return;    
+            }
+            else
+            {
+                constant = hash_table_is_const(&current->globals, AS_STRING(global_name)) == 2;
+            }
         }
-        constant = hash_table_is_const(&current->globals, AS_STRING(global_name)) == 2;
+        else
+        {
+            upvalue = true;
+            size_t index = (size_t)AS_INT(arg);
+            if(current->scope.upvalues[index].constant)
+            {
+                constant = true;
+            }
+        }
     }
     else
     {
         size_t index = (size_t)AS_INT(arg);
-        if(current->locals[index].constant)
+        if(current->scope.locals[index].constant)
         {
             constant = true;
         }
     }
     if(assignable && (check(TOKEN_EQL) || check(TOKEN_PLUS_EQL) || check(TOKEN_MINUS_EQL) || check(TOKEN_STAR_EQL) || check(TOKEN_SLASH_EQL) || check(TOKEN_PERC_EQL) || check(TOKEN_UP_EQL) || check(TOKEN_AMP_EQL) || check(TOKEN_LINE_EQL) || check(TOKEN_LESS_LESS_EQL) || check(TOKEN_GREATER_GREATER_EQL) || check(TOKEN_PLUS_PLUS) || check(TOKEN_MINUS_MINUS)))
     {
-        EMIT_ASSIGNMENT(emit_get_var(arg, global));
-        emit_set_var(arg, global);
+        EMIT_ASSIGNMENT(emit_get_var(arg, upvalue, global));
+        emit_set_var(arg, upvalue, global);
         if(constant)
         {
             size_t len = snprintf(NULL, 0, "Assigning to constant variable '%.*s'", (int)name.len, name.start);
@@ -1180,7 +1252,7 @@ static void named_variable(Token name, bool assignable)
     }
     else
     {
-        emit_get_var(arg, global);
+        emit_get_var(arg, upvalue, global);
         while(match(TOKEN_LEFT_SQR))
         {
             expression();
@@ -1198,6 +1270,8 @@ static void named_variable(Token name, bool assignable)
         }    
     }
 }
+
+#undef EMIT_ASSIGNMENT
 
 static void variable(bool assignable)
 {
@@ -1242,19 +1316,26 @@ static void begin_scope()
 static void end_scope()
 {
     current->scope_depth--;
-    while(current->local_size > 0 && current->locals[current->local_size - 1].depth > current->scope_depth + 1)
+    while(current->scope.locals_size > 0 && current->scope.locals[current->scope.locals_size - 1].depth > current->scope_depth + 1)
     {
-        emit_inst(OP_POP);
-        current->local_size--;
+        if(current->scope.locals[current->scope.locals_size - 1].captured)
+        {
+            emit_inst(OP_CLOSE_UPVALUE);
+        }
+        else
+        {
+            emit_inst(OP_POP);
+        }
+        current->scope.locals_size--;
     }
 }
 
 static void end_func_scope()
 {
     current->scope_depth--;
-    while(current->local_size > 0 && current->locals[current->local_size - 1].depth > current->scope_depth + 1)
+    while(current->scope.locals_size > 0 && current->scope.locals[current->scope.locals_size - 1].depth > current->scope_depth + 1)
     {
-        current->local_size--;
+        current->scope.locals_size--;
     }
 }
 
@@ -1505,11 +1586,11 @@ static bool ident_equal(Token* a, Token* b)
     return memcmp(a->start, b->start, a->len) == 0;
 }
 
-static Value resolve_local(Compiler* compiler, Token* name)
+static Value resolve_local(Scope* scope, Token* name)
 {
-    for(size_t i = compiler->local_size; i > 0; i--)
+    for(size_t i = scope->locals_size; i > 0; i--)
     {
-        Local* local = &compiler->locals[i - 1];
+        Local* local = &scope->locals[i - 1];
         if(ident_equal(name, &local->name))
         {
             if(local->depth == 0)
@@ -1522,17 +1603,86 @@ static Value resolve_local(Compiler* compiler, Token* name)
     return NULL_VAL;
 }
 
+static size_t add_upvalue(Scope* scope, size_t index, bool local, bool constant)
+{
+    for(size_t i = 0; i < scope->upvalues_size; i++)
+    {
+        Upvalue* val = &scope->upvalues[i];
+        if(val->index == index && val->local == local)
+        {
+            return i;
+        }
+    }
+    if(scope->upvalues_size >= scope->upvalues_capacity)
+    {
+        size_t new_cap = GROW_CAPACITY(scope->upvalues_capacity);
+        Upvalue* new_upvalues = GROW_ARRAY(Upvalue, scope->upvalues, scope->upvalues_capacity, new_cap);
+        scope->upvalues_capacity = new_cap;
+        scope->upvalues = new_upvalues;
+    }
+    scope->upvalues[scope->upvalues_size] = (Upvalue){.index = index, .constant = constant, .local = local};
+    scope->upvalues_size++;
+    return scope->upvalues_size - 1;
+}
+
+static Value resolve_upvalue(Token* name, Scope* scope, size_t index)
+{
+    if(index == 0)
+    {
+        return NULL_VAL;
+    }
+    Value local = resolve_local(&current->prev_scopes[index - 1], name);
+    if(!IS_NULL(local))
+    {
+        size_t local_index = (size_t)AS_INT(local);
+        return INT_VAL(add_upvalue(scope, local_index, true, current->prev_scopes[index - 1].locals[local_index].constant));
+    }
+    Value upvalue = resolve_upvalue(name, &current->prev_scopes[index - 1], index - 1);
+    if(!IS_NULL(upvalue))
+    {
+        size_t upvalue_index = (size_t)AS_INT(upvalue);
+        return INT_VAL(add_upvalue(scope, upvalue_index, false, current->prev_scopes[index - 1].upvalues[upvalue_index].constant));
+    }
+    return NULL_VAL;
+}
+
 static void add_local(Token name, bool constant)
 {
-    if(current->local_size >= current->local_capacity)
+    if(current->scope.locals_size >= current->scope.locals_capacity)
     {
-        size_t next_cap = GROW_CAPACITY(current->local_capacity);
-        Local* new_locals = GROW_ARRAY(Local, current->locals, current->local_capacity, next_cap);
-        current->local_capacity = next_cap;
-        current->locals = new_locals;
+        size_t next_cap = GROW_CAPACITY(current->scope.locals_capacity);
+        Local* new_locals = GROW_ARRAY(Local, current->scope.locals, current->scope.locals_capacity, next_cap);
+        current->scope.locals_capacity = next_cap;
+        current->scope.locals = new_locals;
     }
-    current->locals[current->local_size] = (Local){.constant = constant, .name = name, .depth = 0}; 
-    current->local_size++;
+    current->scope.locals[current->scope.locals_size] = (Local){.constant = constant, .name = name, .depth = 0, .captured = false}; 
+    current->scope.locals_size++;
+}
+
+static void add_frame()
+{
+    if(current->prev_scopes_size >= current->prev_scopes_capacity)
+    {
+        size_t new_cap = GROW_CAPACITY(current->prev_scopes_capacity);
+        Scope* new_scopes = GROW_ARRAY(Scope, current->prev_scopes, current->prev_scopes_capacity, new_cap);
+        current->prev_scopes = new_scopes;
+        current->prev_scopes_capacity = new_cap;
+    }
+    current->prev_scopes[current->prev_scopes_size] = current->scope;
+    current->scope = (Scope){.locals = NULL, .locals_size = 0, .locals_capacity = 0, .upvalues = NULL, .upvalues_size = 0, .upvalues_capacity = 0};
+    current->prev_scopes_size++;
+}
+
+static void remove_frame()
+{
+    if(current->prev_scopes_size == 0)
+    {
+        return;
+    }
+    FREE(Local, current->scope.locals);
+    FREE(Upvalue, current->scope.upvalues);
+    current->scope = current->prev_scopes[current->prev_scopes_size - 1];
+    current->prev_scopes_size--;
 }
 
 static Value add_global(Value name, bool constant)
@@ -1549,9 +1699,9 @@ static Value parse_variable(const char* error_msg, bool constant)
     if(current->scope_depth > 0)
     {
         Token* name = &parser.previous;
-        for(size_t i = current->local_size; i > 0; i--)
+        for(size_t i = current->scope.locals_size; i > 0; i--)
         {
-            Local* local = &current->locals[i - 1];
+            Local* local = &current->scope.locals[i - 1];
             if(local->depth != 0 && local->depth < current->scope_depth + 1)
             {
                 break;
@@ -1587,7 +1737,7 @@ static void mark_inititialised()
     {
         return;
     }
-    current->locals[current->local_size - 1].depth = current->scope_depth + 1;
+    current->scope.locals[current->scope.locals_size - 1].depth = current->scope_depth + 1;
 }
 
 static void var_declaration(bool constant)
@@ -1604,7 +1754,7 @@ static void var_declaration(bool constant)
     consume(TOKEN_SEMICOLON, "Expect ';' after variable declaration");
     if(current->scope_depth == 0)
     {
-        emit_set_var(name, true);
+        emit_set_var(name, false, true);
         emit_inst(OP_POP);
     }
     if(current->scope_depth > 0)
@@ -1623,12 +1773,7 @@ static void function(Value val)
     func->defined = true;
     func->num_inputs = 0;
     func->offset = offset;
-    Local* prev_locals = current->locals;
-    size_t prev_local_size = current->local_size;
-    size_t prev_local_cap = current->local_capacity;
-    current->locals = NULL;
-    current->local_capacity = 0;
-    current->local_size = 0;
+    add_frame();
     begin_scope();
     consume(TOKEN_LEFT_PAREN, "Expect '(' after function name");
     if(!check(TOKEN_RIGHT_PAREN))
@@ -1649,17 +1794,21 @@ static void function(Value val)
     block(true);
     emit_return();
     end_func_scope();
-    FREE(Local, current->locals);
-    current->locals = prev_locals;
-    current->local_size = prev_local_size;
-    current->local_capacity = prev_local_cap;
     patch_jump(from);
-    emit_const(OBJ_VAL((Obj*)func));
+    if(current->scope.upvalues_size > 0)
+    {
+        emit_closure(func);
+    }
+    else
+    {
+        emit_const(OBJ_VAL((Obj*)func));
+    }
+    remove_frame();
     add_func(func);
     if(!IS_NULL(val))
     {
         hash_table_get(&current->globals, func_name, &val);
-        emit_set_var(val, true);
+        emit_set_var(val, false, true);
         emit_inst(OP_POP);
     }
 }
@@ -2023,7 +2172,7 @@ bool compile(const char* src, Chunk* chunk, HashTable* global_names)
 
     resolve_jump_table(&obj_chunk, chunk);
 
-    if(global_names)
+    if(!parser.had_error && global_names)
     {
         *global_names = compiler.globals;
         compiler.globals.entries = NULL;

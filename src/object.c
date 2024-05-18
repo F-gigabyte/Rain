@@ -8,7 +8,9 @@
 #define ALLOCATE_OBJ(type, obj_type) \
     (type*)allocate_obj(sizeof(type), obj_type)
 #define ALLOCATE_STR(len) \
-    (ObjString*)allocate_obj(sizeof(ObjString) + len, OBJ_STRING)
+    (ObjString*)allocate_obj(sizeof(ObjString) + (len), OBJ_STRING)
+#define ALLOCATE_CLOSURE(len) \
+    (ObjClosure*)allocate_obj(sizeof(ObjClosure) + (len) * sizeof(UpvalueIndex), OBJ_CLOSURE)
 #define ALLOCATE_ARRAY(len) \
     (ObjArray*)allocate_obj(sizeof(ObjArray) + (len) * sizeof(Value), OBJ_ARRAY)
 
@@ -252,6 +254,14 @@ ObjString* obj_to_str(Value value)
             snprintf(res_chars, len + 1, "<native func %s (args: %zu): external>", AS_NATIVE(value)->name->chars, AS_NATIVE(value)->num_inputs);
             return take_str(res_chars, len);
         }
+        case OBJ_CLOSURE:
+        {
+            return obj_to_str(OBJ_VAL((Obj*)AS_CLOSURE(value)->func));
+        }
+        case OBJ_UPVALUE:
+        {
+            return copy_str("Upvalue", 7);
+        }
         default:
         {
             return copy_str("Unknown Object", 14);
@@ -299,3 +309,21 @@ ObjNative* new_native(NativeFn func, ObjString* name, size_t args)
     return native;
 }
 
+ObjClosure* new_closure(ObjFunc* func, size_t num_upvalues)
+{
+    ObjClosure* closure = ALLOCATE_CLOSURE(num_upvalues);
+    closure->func = func;
+    closure->num_upvalues = num_upvalues;
+    closure->loaded = false;
+    memset(closure->upvalues, 0, sizeof(UpvalueIndex) * num_upvalues);
+    return closure;
+}
+
+ObjUpvalue* new_upvalue(Value* loc)
+{
+    ObjUpvalue* upvalue = ALLOCATE_OBJ(ObjUpvalue, OBJ_UPVALUE);
+    upvalue->closed = NULL_VAL;
+    upvalue->next = NULL;
+    upvalue->value = loc;
+    return upvalue;
+}

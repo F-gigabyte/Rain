@@ -6,7 +6,6 @@
 #include <stdlib.h>
 #include <errno.h>
 #include <lines.h>
-#include <object.h>
 #include <rain_memory.h>
 #include <string.h>
 #include <convert.h>
@@ -16,6 +15,25 @@
 #endif
 
 VM vm;
+
+static void close_upvalue()
+{
+    ObjUpvalue* last = vm.open_upvalues;
+    last->closed = *last->value;
+    last->value = &last->closed;
+    vm.open_upvalues = (ObjUpvalue*)last->next;
+}
+
+static void close_func_upvalues()
+{
+    while(vm.open_upvalues != NULL && vm.open_upvalues->value >= vm.stack_base)
+    {
+        ObjUpvalue* last = vm.open_upvalues;
+        last->closed = *last->value;
+        last->value = &last->closed;
+        vm.open_upvalues = (ObjUpvalue*)last->next;
+    }
+}
 
 static void reset_stack()
 {
@@ -42,6 +60,7 @@ void init_vm()
 {
     reset_stack();
     vm.objects = NULL;
+    vm.open_upvalues = NULL;
     init_hash_table(&vm.strings);
 }
 
@@ -120,6 +139,51 @@ static bool setup_call(size_t expected_inputs)
     return true;
 }
 
+static ObjUpvalue* capture_upvalue(Value* loc)
+{
+    ObjUpvalue* prev = NULL;
+    ObjUpvalue* upvalue = vm.open_upvalues;
+    while(upvalue != NULL && upvalue->value > loc)
+    {
+        prev = upvalue;
+        upvalue = (ObjUpvalue*)upvalue->next;
+    }
+    if(upvalue != NULL && upvalue->value == loc)
+    {
+        return upvalue;
+    }
+    ObjUpvalue* created = new_upvalue(loc);
+    created->next = (struct ObjUpvalue*)upvalue;
+    if(prev == NULL)
+    {
+        vm.open_upvalues = created;
+    }
+    else
+    {
+        prev->next = (struct ObjUpvalue*)created;
+    }
+    return created;
+}
+
+static void init_closure(ObjClosure* closure)
+{
+    for(size_t i = 0; i < closure->num_upvalues; i++)
+    {
+        Value* loc;
+        if(closure->upvalues[i].indexes.local)
+        {
+            loc = &vm.stack_base[closure->upvalues[i].indexes.index];
+        }
+        else
+        {
+            ObjClosure* prev = AS_CLOSURE(vm.stack_base[-3]);
+            loc = prev->upvalues[closure->upvalues[i].indexes.index].upvalue->value;
+        }
+        closure->upvalues[i].upvalue = capture_upvalue(loc);
+    }
+    closure->loaded = true;
+}
+
 static void call(ObjFunc* func)
 {
     vm.ip = vm.chunk->code + func->offset;
@@ -134,6 +198,16 @@ static bool call_value(Value callee)
             case OBJ_FUNC:
             {
                 ObjFunc* func = AS_FUNC(callee);
+                if(!setup_call(func->num_inputs))
+                {
+                    return false;
+                }
+                call(func);
+                return true;
+            }
+            case OBJ_CLOSURE:
+            {
+                ObjFunc* func = AS_CLOSURE(callee)->func;
                 if(!setup_call(func->num_inputs))
                 {
                     return false;
@@ -794,6 +868,12 @@ static InterpretResult run()
                 pop();
                 break;
             }
+            case OP_CLOSE_UPVALUE:
+            {
+                close_upvalue();
+                pop();
+                break;
+            }
             case OP_GET_GLOBAL_BYTE:
             {
                 Value value = read_global(1);
@@ -840,6 +920,66 @@ static InterpretResult run()
             {
                 Value value = peek(0);
                 write_global(8, value);
+                break;
+            }
+            case OP_GET_UPVALUE_BYTE:
+            {
+                size_t slot = read_inst_index(1);
+                ObjClosure* closure = AS_CLOSURE(vm.stack_base[-3]);
+                push(*closure->upvalues[slot].upvalue->value);
+                break;
+            }
+            case OP_GET_UPVALUE_SHORT:
+            {
+                size_t slot = read_inst_index(2);
+                ObjClosure* closure = AS_CLOSURE(vm.stack_base[-3]);
+                push(*closure->upvalues[slot].upvalue->value);
+                break;
+            }
+            case OP_GET_UPVALUE_WORD:
+            {
+                size_t slot = read_inst_index(4);
+                ObjClosure* closure = AS_CLOSURE(vm.stack_base[-3]);
+                push(*closure->upvalues[slot].upvalue->value);
+                break;
+            }
+            case OP_GET_UPVALUE_LONG:
+            {
+                size_t slot = read_inst_index(8);
+                ObjClosure* closure = AS_CLOSURE(vm.stack_base[-3]);
+                push(*closure->upvalues[slot].upvalue->value);
+                break;
+            }
+            case OP_SET_UPVALUE_BYTE:
+            {
+                size_t slot = read_inst_index(1);
+                ObjClosure* closure = AS_CLOSURE(vm.stack_base[-3]);
+                Value value = peek(0);
+                *closure->upvalues[slot].upvalue->value = value;
+                break;
+            }
+            case OP_SET_UPVALUE_SHORT:
+            {
+                size_t slot = read_inst_index(2);
+                ObjClosure* closure = AS_CLOSURE(vm.stack_base[-3]);
+                Value value = peek(0);
+                *closure->upvalues[slot].upvalue->value = value;
+                break;
+            }
+            case OP_SET_UPVALUE_WORD:
+            {
+                size_t slot = read_inst_index(4);
+                ObjClosure* closure = AS_CLOSURE(vm.stack_base[-3]);
+                Value value = peek(0);
+                *closure->upvalues[slot].upvalue->value = value;
+                break;
+            }
+            case OP_SET_UPVALUE_LONG:
+            {
+                size_t slot = read_inst_index(8);
+                ObjClosure* closure = AS_CLOSURE(vm.stack_base[-3]);
+                Value value = peek(0);
+                *closure->upvalues[slot].upvalue->value = value;
                 break;
             }
             case OP_GET_LOCAL_BYTE:
@@ -1191,10 +1331,39 @@ static InterpretResult run()
             case OP_POP_BASE:
             {
                 Value ret = pop();
+                close_func_upvalues();
                 vm.stack_top = vm.stack_base;
                 Value val = pop();
                 vm.stack_base = (Value*)(size_t)AS_INT(val);
                 push(ret);
+                break;
+            }
+            case OP_CLOSURE_BYTE:
+            {
+                ObjClosure* closure = AS_CLOSURE(read_const(1));
+                init_closure(closure);
+                push(OBJ_VAL((Obj*)closure));
+                break;
+            }
+            case OP_CLOSURE_SHORT:
+            {
+                ObjClosure* closure = AS_CLOSURE(read_const(2));
+                init_closure(closure);
+                push(OBJ_VAL((Obj*)closure));
+                break;
+            }
+            case OP_CLOSURE_WORD:
+            {
+                ObjClosure* closure = AS_CLOSURE(read_const(4));
+                init_closure(closure);
+                push(OBJ_VAL((Obj*)closure));
+                break;
+            }
+            case OP_CLOSURE_LONG:
+            {
+                ObjClosure* closure = AS_CLOSURE(read_const(8));
+                init_closure(closure);
+                push(OBJ_VAL((Obj*)closure));
                 break;
             }
             default:
@@ -1236,6 +1405,11 @@ InterpretResult interpret(const char* src, HashTable* global_names, Chunk* main_
 
 void push(Value value)
 {
+    if(vm.stack_top >= vm.stack + STACK_MAX)
+    {
+        runtime_error("Stack Overflow - please report on stackoverflow.com");
+        return;
+    }
     *vm.stack_top = value;
     vm.stack_top++;
 }

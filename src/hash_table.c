@@ -163,7 +163,7 @@ ObjString* hash_table_find_str(HashTable* table, const char* chars, size_t len, 
     uint32_t index = hash % table->capacity;
     for(;;)
     {
-        Entry* entry = &table->entries[index];
+        Entry* entry = table->entries + index;
         if(entry->key == NULL)
         {
             if(IS_NULL(entry->var.value))
@@ -176,7 +176,6 @@ ObjString* hash_table_find_str(HashTable* table, const char* chars, size_t len, 
             return entry->key;
         }
         index = comp_next_index(index, &add_on, table->capacity);
-        add_on++;
     }
 }
 

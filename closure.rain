@@ -1,0 +1,20 @@
+func outer()
+{
+    var x = "value";
+
+    func middle()
+    {
+        func inner()
+        {
+            print(x);
+        }
+        print("create inner closure");
+        ret inner;
+    }
+    print("return from outer");
+    ret middle;
+}
+
+var mid = outer();
+var inner = mid();
+inner();
