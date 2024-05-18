@@ -52,17 +52,13 @@ static void repl()
         {
             switch(line[i])
             {
-                case '[':
                 case '{':
-                case '(':
                 {
                     paren++;
                     term_statement = false;
                     break;
                 }
-                case ']':
                 case '}':
-                case ')':
                 {
                     if(paren > 0)
                     {
