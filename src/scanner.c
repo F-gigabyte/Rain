@@ -424,25 +424,7 @@ static TokenType identifier_type()
                         {
                             case('i'):
                             {
-                                switch(scanner.start[3])
-                                {
-                                    case('n'):
-                                    {
-                                        return check_keyword(4, 1, "t", TOKEN_PRINT);
-                                    }
-                                    case('v'):
-                                    {
-                                        if(scanner.current - scanner.start == 0)
-                                        {
-                                            return TOKEN_PRIV;
-                                        }
-                                        break;
-                                    }
-                                    default:
-                                    {
-                                        break;
-                                    }
-                                }
+                                return check_keyword(3, 1, "v", TOKEN_PRIV);
                             }
                             case('o'):
                             {

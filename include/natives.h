@@ -5,5 +5,6 @@
 #include <value.h>
 
 Value time_native(Value* args);
+Value print_native(Value* args);
 
 #endif

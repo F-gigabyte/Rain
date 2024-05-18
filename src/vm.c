@@ -61,6 +61,7 @@ void init_vm()
     reset_stack();
     vm.objects = NULL;
     vm.open_upvalues = NULL;
+    vm.running = false;
     init_hash_table(&vm.strings);
 }
 
@@ -240,6 +241,7 @@ static bool call_value(Value callee)
 
 static InterpretResult run()
 {
+    vm.running = true;
     for(;;)
     {
 #ifdef DEBUG_TRACE_EXECUTION
@@ -1373,6 +1375,7 @@ static InterpretResult run()
             }
         }
     }
+    vm.running = false;
 }
 
 #undef READ_INST

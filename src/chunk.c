@@ -131,10 +131,28 @@ size_t read_chunk_const(inst_type* inst, size_t* offset, size_t off_size)
 
 void pass_chunk_context(Chunk* from, Chunk* to)
 {
+    free_value_array(&to->consts);
+    free_value_array(&to->globals);
     to->consts = from->consts;
     to->globals = from->globals;
     from->consts = (ValueArray){.values = NULL, .capacity = 0, .size = 0};
     from->globals = (ValueArray){.values = NULL, .capacity = 0, .size = 0};
+}
+
+void copy_chunk_context(Chunk* from, Chunk* to)
+{
+    free_value_array(&to->consts);
+    free_value_array(&to->globals);
+    init_value_array(&to->consts);
+    init_value_array(&to->globals);
+    for(size_t i = 0; i < from->globals.size; i++)
+    {
+       write_value_array(&to->globals, from->globals.values[i]); 
+    }
+    for(size_t i = 0; i < from->consts.size; i++)
+    {
+        write_value_array(&to->consts, from->consts.values[i]);
+    }
 }
 
 void free_chunk(Chunk* chunk)

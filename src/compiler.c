@@ -292,10 +292,6 @@ static const char* token_type_str(TokenType type)
         {
             return "OVERRIDE";
         }
-        case TOKEN_PRINT:
-        {
-            return "PRINT";
-        }
         case TOKEN_PRIV:
         {
             return "PRIV";
@@ -1357,7 +1353,6 @@ static void synchronise()
             case TOKEN_FOR:
             case TOKEN_IF:
             case TOKEN_WHILE:
-            case TOKEN_PRINT:
             case TOKEN_PRIV:
             case TOKEN_PROT:
             case TOKEN_PUB:
@@ -1540,11 +1535,7 @@ static void return_statement(bool in_func)
 
 static void statement(bool in_func)
 {
-    if(match(TOKEN_PRINT))
-    {
-        print_statement();
-    }
-    else if(match(TOKEN_LEFT_BRACE))
+    if(match(TOKEN_LEFT_BRACE))
     {
         begin_scope();
         block(in_func);
@@ -1916,7 +1907,6 @@ ParseRule rules[] = {
     [TOKEN_NULL]                    = {literal,  NULL,   PREC_NONE},
     [TOKEN_OR]                      = {NULL,     or_,      PREC_OR},
     [TOKEN_OVERRIDE]                = {NULL,     NULL,   PREC_NONE},
-    [TOKEN_PRINT]                   = {NULL,     NULL,   PREC_NONE},
     [TOKEN_PRIV]                    = {NULL,     NULL,   PREC_NONE},
     [TOKEN_PROT]                    = {NULL,     NULL,   PREC_NONE},
     [TOKEN_PUB]                     = {NULL,     NULL,   PREC_NONE},
@@ -2118,6 +2108,7 @@ static void define_native(const char* name, NativeFn func, size_t args)
 static void define_natives()
 {
     define_native("time", time_native, 0);
+    define_native("print", print_native, 1);
 }
 
 bool compile(const char* src, Chunk* chunk, HashTable* global_names)
@@ -2131,12 +2122,11 @@ bool compile(const char* src, Chunk* chunk, HashTable* global_names)
     if(global_names)
     {
         compiler.globals = *global_names;
-        pass_chunk_context(chunk, &obj_chunk);
-        compiling_chunk = &obj_chunk;
+        copy_chunk_context(chunk, &obj_chunk);
     }
-    else
+    compiling_chunk = &obj_chunk;
+    if(compiler.globals.count == 0)
     {
-        compiling_chunk = &obj_chunk;
         define_natives();
     }
 
@@ -2170,15 +2160,22 @@ bool compile(const char* src, Chunk* chunk, HashTable* global_names)
         }
     }
 
-    resolve_jump_table(&obj_chunk, chunk);
-
-    if(!parser.had_error && global_names)
+    if(!parser.had_error)
     {
-        *global_names = compiler.globals;
+        resolve_jump_table(&obj_chunk, chunk);
+    }
+
+    if(global_names)
+    {
+        if(!parser.had_error)
+        {
+            *global_names = compiler.globals;
+        }
         compiler.globals.entries = NULL;
         compiler.globals.capacity = 0;
         compiler.globals.count = 0;
     }
+    free_chunk(&obj_chunk);
     end_compiler();
     return !parser.had_error;
 }

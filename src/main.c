@@ -4,31 +4,107 @@
 #include <stdlib.h>
 #include <string.h>
 
+static char* merge_text(const char* a, const char* b, size_t len_a, size_t len_b)
+{
+    size_t len = len_a + len_b + 1;
+    char* res = malloc(len);
+    memcpy(res, a, len_a);
+    memcpy(res + len_a, b, len_b);
+    res[len - 1] = 0;
+    return res;
+}
+
 static void repl()
 {
     Chunk main_chunk;
     HashTable global_names;
     init_chunk(&main_chunk);
     init_hash_table(&global_names);
+    char* current_text = NULL;
+    size_t len = 0;
+    size_t paren = 0;
     for(;;)
     {
-        printf("~> ");
+        if(current_text == NULL)
+        {
+            printf("~> ");
+        }
+        else
+        {
+            printf("   ");
+        }
         char* line = NULL;
         size_t buffer_size = 0;
-        ssize_t len = getline(&line, &buffer_size, stdin);
-        if(len == -1)
+        ssize_t len_line = getline(&line, &buffer_size, stdin);
+        size_t paren_closed = 0;
+        bool term_statement = false;
+        if(len_line == -1)
         {
             fprintf(stderr, "Unable to read input line\n");
             exit(74);
         }
-        if(len == 0 || (len == 1 && line[0] == '\n'))
+        if((len_line == 0 || (len_line == 1 && line[0] == '\n')) && paren == 0)
         {
             free(line);
             break;
         }
-        interpret(line, &global_names, &main_chunk);
+        for(size_t i = 0; i < len_line; i++)
+        {
+            switch(line[i])
+            {
+                case '[':
+                case '{':
+                case '(':
+                {
+                    paren++;
+                    term_statement = false;
+                    break;
+                }
+                case ']':
+                case '}':
+                case ')':
+                {
+                    if(paren > 0)
+                    {
+                        paren--;
+                        paren_closed++;
+                    }
+                    term_statement = false;
+                    break;
+                }
+                case ';':
+                {
+                    term_statement = true;
+                    break;
+                }
+                case '\t':
+                case ' ':
+                case '\n':
+                case '\r':
+                {
+                    break;
+                }
+                default:
+                {
+                    term_statement = false;
+                    break;
+                }
+            }
+        }
+        char* next_text = merge_text(current_text, line, len, len_line);
+        free(current_text);
+        current_text = next_text;
+        len += len_line;
+        if(paren == 0 && (paren_closed > 0 || term_statement))
+        {
+            interpret(current_text, &global_names, &main_chunk);
+            free(current_text);
+            current_text = NULL;
+            len = 0;
+        }
         free(line);
     }
+    free(current_text);
 }
 
 static char* read_file(const char* path)

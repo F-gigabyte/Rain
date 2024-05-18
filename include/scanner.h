@@ -78,7 +78,6 @@ typedef enum {
     TOKEN_NULL, // null
     TOKEN_OR, // or
     TOKEN_OVERRIDE, // override
-    TOKEN_PRINT, // print
     TOKEN_PRIV, // priv
     TOKEN_PROT, // prot
     TOKEN_PUB, // pub

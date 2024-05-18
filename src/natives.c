@@ -10,3 +10,9 @@ Value time_native(Value* args)
     }
     return INT_VAL((int64_t)(((size_t)res.tv_sec * 1000000000) + (size_t)res.tv_nsec));
 }
+
+Value print_native(Value* args)
+{
+    print_value(args[0]);
+    return NULL_VAL;
+}

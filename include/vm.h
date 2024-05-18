@@ -19,6 +19,7 @@ typedef struct {
     HashTable strings;
     Obj* objects;
     ObjUpvalue* open_upvalues;
+    bool running;
 } VM;
 
 typedef enum {

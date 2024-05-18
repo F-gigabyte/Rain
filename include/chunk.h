@@ -136,5 +136,6 @@ size_t read_chunk_const(inst_type* inst, size_t* offset, size_t off_size);
 void free_chunk(Chunk* chunk);
 // passes global variables and constants between chunks
 void pass_chunk_context(Chunk* from, Chunk* to);
-
+// copies global variables and constants between chunks
+void copy_chunk_context(Chunk* from, Chunk* to);
 #endif
