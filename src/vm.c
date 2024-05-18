@@ -227,6 +227,7 @@ static bool call_value(Value callee)
                 vm.stack_top = vm.stack_base;
                 Value val = pop();
                 vm.stack_base = (Value*)(size_t)AS_INT(val);
+                vm.next_stack_base = vm.stack_base;
                 vm.stack_top[-2] = result;
                 pop();
                 return true;
@@ -863,12 +864,6 @@ static InterpretResult run()
                 }
                 break;
             }
-            case OP_PRINT:
-            {
-                print_value(pop());
-                printf("\n");
-                break;
-            }
             case OP_POP:
             {
                 pop();
@@ -1330,7 +1325,7 @@ static InterpretResult run()
             case OP_PUSH_BASE:
             {
                 push(NULL_VAL);
-                push(INT_VAL((int64_t)(size_t)(vm.stack_base)));
+                push(INT_VAL((int64_t)(size_t)(vm.next_stack_base)));
                 vm.next_stack_base = vm.stack_top;
                 break;
             }
@@ -1341,6 +1336,7 @@ static InterpretResult run()
                 vm.stack_top = vm.stack_base;
                 Value val = pop();
                 vm.stack_base = (Value*)(size_t)AS_INT(val);
+                vm.next_stack_base = vm.stack_base;
                 push(ret);
                 break;
             }
