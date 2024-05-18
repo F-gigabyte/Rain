@@ -224,7 +224,11 @@ static bool call_value(Value callee)
                     return false;
                 }
                 Value result = native->func(vm.stack_base);
-                push(result);
+                vm.stack_top = vm.stack_base;
+                Value val = pop();
+                vm.stack_base = (Value*)(size_t)AS_INT(val);
+                vm.stack_top[-2] = result;
+                pop();
                 return true;
             }
             default:

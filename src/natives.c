@@ -1,5 +1,6 @@
 #include <natives.h>
 #include <time.h>
+#include <stdio.h>
 
 Value time_native(Value* args)
 {
@@ -14,5 +15,6 @@ Value time_native(Value* args)
 Value print_native(Value* args)
 {
     print_value(args[0]);
+    printf("\n");
     return NULL_VAL;
 }
