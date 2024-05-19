@@ -14,7 +14,7 @@ typedef struct {
     Value stack[STACK_MAX];
     Value* stack_base;
     Value* stack_top;
-    Value* next_stack_base;
+    Value* call_base;
     Value* searched;
     HashTable strings;
     Obj* objects;

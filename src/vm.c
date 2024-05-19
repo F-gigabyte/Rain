@@ -39,7 +39,7 @@ static void reset_stack()
 {
     vm.stack_top = vm.stack;
     vm.stack_base = vm.stack;
-    vm.next_stack_base = vm.stack;
+    vm.call_base = vm.stack;
 }
 
 static void runtime_error(const char* format, ...)
@@ -129,14 +129,14 @@ static size_t read_jump(size_t offset_size)
 
 static bool setup_call(size_t expected_inputs)
 {
-    vm.stack_base = vm.next_stack_base;
+    vm.stack_base = vm.call_base;
     size_t args = (size_t)(vm.stack_top - vm.stack_base);
     if(args != expected_inputs)
     {
         runtime_error("Expected %zu args but got %zu", expected_inputs, args);
         return false;
     }
-    vm.stack_base[-2] = INT_VAL((int64_t)(size_t)((vm.ip - vm.chunk->code)));
+    vm.stack_base[-3] = INT_VAL((int64_t)(size_t)((vm.ip - vm.chunk->code)));
     return true;
 }
 
@@ -223,13 +223,16 @@ static bool call_value(Value callee)
                 {
                     return false;
                 }
-                Value result = native->func(vm.stack_base);
+                Value ret = native->func(vm.stack_base);
+                close_func_upvalues();
                 vm.stack_top = vm.stack_base;
-                Value val = pop();
-                vm.stack_base = (Value*)(size_t)AS_INT(val);
-                vm.next_stack_base = vm.stack_base;
-                vm.stack_top[-2] = result;
-                pop();
+                Value call_base_addr = pop();
+                Value base_addr = pop();
+                pop(); // remove return address (don't need)
+                vm.call_base = (Value*)(size_t)AS_INT(call_base_addr);
+                vm.stack_base = (Value*)(size_t)AS_INT(base_addr);
+                pop(); // remove calling function
+                push(ret);
                 return true;
             }
             default:
@@ -265,10 +268,17 @@ static InterpretResult run()
         {
             case OP_RETURN:
             {
-                vm.ip = vm.chunk->code + (size_t)AS_INT(peek(1));
-                vm.stack_top[-3] = vm.stack_top[-1];
-                pop();
-                pop();
+                Value ret = pop();
+                close_func_upvalues();
+                vm.stack_top = vm.stack_base;
+                Value call_base_addr = pop();
+                Value base_addr = pop();
+                Value ret_addr = pop();
+                vm.call_base = (Value*)(size_t)AS_INT(call_base_addr);
+                vm.stack_base = (Value*)(size_t)AS_INT(base_addr);
+                vm.ip = vm.chunk->code + (size_t)AS_INT(ret_addr);
+                pop(); // remove calling function
+                push(ret);
                 break;
             }
             case OP_EXIT:
@@ -1316,28 +1326,18 @@ static InterpretResult run()
             }
             case OP_CALL:
             {
-                if(!call_value(vm.next_stack_base[-3]))
+                if(!call_value(vm.call_base[-4]))
                 {
                     return INTERPRET_RUNTIME_ERROR;
                 }
                 break;
             }
-            case OP_PUSH_BASE:
+            case OP_PUSH_CALL_BASE:
             {
                 push(NULL_VAL);
-                push(INT_VAL((int64_t)(size_t)(vm.next_stack_base)));
-                vm.next_stack_base = vm.stack_top;
-                break;
-            }
-            case OP_POP_BASE:
-            {
-                Value ret = pop();
-                close_func_upvalues();
-                vm.stack_top = vm.stack_base;
-                Value val = pop();
-                vm.stack_base = (Value*)(size_t)AS_INT(val);
-                vm.next_stack_base = vm.stack_base;
-                push(ret);
+                push(INT_VAL((int64_t)(size_t)(vm.stack_base)));
+                push(INT_VAL((int64_t)(size_t)(vm.call_base)));
+                vm.call_base = vm.stack_top;
                 break;
             }
             case OP_CLOSURE_BYTE:

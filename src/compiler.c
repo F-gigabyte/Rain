@@ -627,7 +627,6 @@ static void emit_insts(inst_type inst1, inst_type inst2)
 static void emit_return()
 {
     emit_const(NULL_VAL);
-    emit_inst(OP_POP_BASE);
     emit_inst(OP_RETURN);
 }
 
@@ -870,7 +869,7 @@ static size_t push_arguments()
 
 static void call(bool assignable)
 {
-    emit_inst(OP_PUSH_BASE);
+    emit_inst(OP_PUSH_CALL_BASE);
     size_t inputs = push_arguments();
     emit_inst(OP_CALL);
 }
@@ -1370,15 +1369,6 @@ static void synchronise()
     }
 }
 
-static void print_statement()
-{
-    consume(TOKEN_LEFT_PAREN, "Expect '(' after print");
-    expression();
-    consume(TOKEN_RIGHT_PAREN, "Expect ')' after print expression");
-    consume(TOKEN_SEMICOLON, "Expect ';' after statement");
-    emit_inst(OP_PRINT);
-}
-
 static void if_statement(bool in_func)
 {
     consume(TOKEN_LEFT_PAREN, "Expect '(' after 'if'");
@@ -1527,7 +1517,6 @@ static void return_statement(bool in_func)
     else
     {
         expression();
-        emit_inst(OP_POP_BASE);
         emit_inst(OP_RETURN);
         consume(TOKEN_SEMICOLON, "Expect ';' after return value");
     }

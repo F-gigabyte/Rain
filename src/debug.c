@@ -203,10 +203,6 @@ size_t disassemble_inst(Chunk* chunk, size_t offset)
         {
             return simple_inst("OP_CAST_FLOAT", offset);
         }
-        case OP_PRINT:
-        {
-            return simple_inst("OP_PRINT", offset);
-        }
         case OP_POP:
         {
             return simple_inst("OP_POP", offset);
@@ -395,13 +391,9 @@ size_t disassemble_inst(Chunk* chunk, size_t offset)
         {
            return simple_inst("OP_CALL", offset); 
         }
-        case OP_PUSH_BASE:
+        case OP_PUSH_CALL_BASE:
         {
-            return simple_inst("OP_PUSH_BASE", offset);
-        }
-        case OP_POP_BASE:
-        {
-            return simple_inst("OP_POP_BASE", offset);
+            return simple_inst("OP_PUSH_CALL_BASE", offset);
         }
         case OP_CLOSURE_BYTE:
         {
