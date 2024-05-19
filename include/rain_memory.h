@@ -20,6 +20,9 @@
 // resize a section of allocated memory
 void* reallocate(void* ptr, size_t old_size, size_t new_size);
 
+// performs garbage collection
+void collect_garbage();
+
 // frees all objects
 void free_objs();
 

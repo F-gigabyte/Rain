@@ -3,8 +3,19 @@
 #include <vm.h>
 #include <object.h>
 
+#ifdef DEBUG_LOG_GC
+#include <stdio.h>
+#include <debug.h>
+#endif
+
 void* reallocate(void* ptr, size_t old_size, size_t new_size)
 {
+    if(vm.running && new_size > old_size)
+    {
+#ifdef DEBUG_STRESS_GC
+        collect_garbage();
+#endif
+    }
     if(new_size == 0)
     {
         free(ptr);
@@ -20,6 +31,9 @@ void* reallocate(void* ptr, size_t old_size, size_t new_size)
 
 static void free_obj(Obj* obj)
 {
+#ifdef DEBUG_LOG_GC
+    printf("%p free type %d\n", (void*)obj, obj->type);
+#endif
     switch(obj->type)
     {
         case OBJ_STRING:
@@ -74,4 +88,17 @@ void free_objs()
         free_obj(obj);
         obj = next;
     }
+}
+
+void collect_garbage()
+{
+#ifdef DEBUG_LOG_GC
+    printf("-- gc begin\n");
+#endif
+
+
+
+#ifdef DEBUG_LOG_GC
+    printf("-- gc end\n");
+#endif
 }

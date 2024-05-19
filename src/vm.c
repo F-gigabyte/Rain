@@ -177,7 +177,7 @@ static void init_closure(ObjClosure* closure)
         }
         else
         {
-            ObjClosure* prev = AS_CLOSURE(vm.stack_base[-3]);
+            ObjClosure* prev = AS_CLOSURE(vm.stack_base[-4]);
             loc = prev->upvalues[closure->upvalues[i].indexes.index].upvalue->value;
         }
         closure->upvalues[i].upvalue = capture_upvalue(loc);
@@ -936,35 +936,35 @@ static InterpretResult run()
             case OP_GET_UPVALUE_BYTE:
             {
                 size_t slot = read_inst_index(1);
-                ObjClosure* closure = AS_CLOSURE(vm.stack_base[-3]);
+                ObjClosure* closure = AS_CLOSURE(vm.stack_base[-4]);
                 push(*closure->upvalues[slot].upvalue->value);
                 break;
             }
             case OP_GET_UPVALUE_SHORT:
             {
                 size_t slot = read_inst_index(2);
-                ObjClosure* closure = AS_CLOSURE(vm.stack_base[-3]);
+                ObjClosure* closure = AS_CLOSURE(vm.stack_base[-4]);
                 push(*closure->upvalues[slot].upvalue->value);
                 break;
             }
             case OP_GET_UPVALUE_WORD:
             {
                 size_t slot = read_inst_index(4);
-                ObjClosure* closure = AS_CLOSURE(vm.stack_base[-3]);
+                ObjClosure* closure = AS_CLOSURE(vm.stack_base[-4]);
                 push(*closure->upvalues[slot].upvalue->value);
                 break;
             }
             case OP_GET_UPVALUE_LONG:
             {
                 size_t slot = read_inst_index(8);
-                ObjClosure* closure = AS_CLOSURE(vm.stack_base[-3]);
+                ObjClosure* closure = AS_CLOSURE(vm.stack_base[-4]);
                 push(*closure->upvalues[slot].upvalue->value);
                 break;
             }
             case OP_SET_UPVALUE_BYTE:
             {
                 size_t slot = read_inst_index(1);
-                ObjClosure* closure = AS_CLOSURE(vm.stack_base[-3]);
+                ObjClosure* closure = AS_CLOSURE(vm.stack_base[-4]);
                 Value value = peek(0);
                 *closure->upvalues[slot].upvalue->value = value;
                 break;
@@ -972,7 +972,7 @@ static InterpretResult run()
             case OP_SET_UPVALUE_SHORT:
             {
                 size_t slot = read_inst_index(2);
-                ObjClosure* closure = AS_CLOSURE(vm.stack_base[-3]);
+                ObjClosure* closure = AS_CLOSURE(vm.stack_base[-4]);
                 Value value = peek(0);
                 *closure->upvalues[slot].upvalue->value = value;
                 break;
@@ -980,7 +980,7 @@ static InterpretResult run()
             case OP_SET_UPVALUE_WORD:
             {
                 size_t slot = read_inst_index(4);
-                ObjClosure* closure = AS_CLOSURE(vm.stack_base[-3]);
+                ObjClosure* closure = AS_CLOSURE(vm.stack_base[-4]);
                 Value value = peek(0);
                 *closure->upvalues[slot].upvalue->value = value;
                 break;
@@ -988,7 +988,7 @@ static InterpretResult run()
             case OP_SET_UPVALUE_LONG:
             {
                 size_t slot = read_inst_index(8);
-                ObjClosure* closure = AS_CLOSURE(vm.stack_base[-3]);
+                ObjClosure* closure = AS_CLOSURE(vm.stack_base[-4]);
                 Value value = peek(0);
                 *closure->upvalues[slot].upvalue->value = value;
                 break;
