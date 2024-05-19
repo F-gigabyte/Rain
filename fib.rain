@@ -15,6 +15,6 @@ func fib(n)
     }
 }
 
-print("fib(6): {fib(6)}");
+print("fib(35): {fib(35)}");
 const end = time();
 print("Start time: {start}, end time: {end}\nExecuted in {(end - start) / 1000000000.0} seconds");
