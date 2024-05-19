@@ -2,6 +2,7 @@
 #define RAIN_MEMORY_H
 
 #include <common.h>
+#include <value.h>
 
 #define ALLOCATE(type, count) \
     (type*)reallocate(NULL, 0, sizeof(type) * (count))
@@ -19,6 +20,9 @@
 
 // resize a section of allocated memory
 void* reallocate(void* ptr, size_t old_size, size_t new_size);
+
+// marks a value as being active
+void mark_obj(Obj* obj);
 
 // performs garbage collection
 void collect_garbage();

@@ -32,7 +32,7 @@ void* reallocate(void* ptr, size_t old_size, size_t new_size)
 static void free_obj(Obj* obj)
 {
 #ifdef DEBUG_LOG_GC
-    printf("%p free type %d\n", (void*)obj, obj->type);
+    printf("%p free type %s\n", (void*)obj, get_obj_type_name(obj->type));
 #endif
     switch(obj->type)
     {
@@ -79,6 +79,17 @@ static void free_obj(Obj* obj)
     }
 }
 
+void mark_obj(Obj* obj)
+{
+    if(obj != NULL)
+    {
+#ifdef DEBUG_LOG_GC
+        printf("%p marked\n", (void*)obj);
+#endif
+        obj->marked = true;
+    }
+}
+
 void free_objs()
 {
     Obj* obj = vm.objects;
@@ -90,15 +101,44 @@ void free_objs()
     }
 }
 
+static void mark_roots()
+{
+    for(Value* slot = vm.stack; slot < vm.stack_top; slot++)
+    {
+        if(IS_OBJ(*slot))
+        {
+            mark_obj(AS_OBJ(*slot));    
+        }
+    }
+    for(size_t i = 0; i < vm.chunk->globals.size; i++)
+    {
+        Value val = vm.chunk->globals.values[i];
+        if(IS_OBJ(val))
+        {
+            mark_obj(AS_OBJ(val));
+        }
+    }
+    for(size_t i = 0; i < vm.chunk->consts.size; i++)
+    {
+        Value val = vm.chunk->consts.values[i];
+        if(IS_OBJ(val))
+        {
+            mark_obj(AS_OBJ(val));
+        }
+    }
+    for(ObjUpvalue* upvalue = vm.open_upvalues; upvalue != NULL; upvalue = (ObjUpvalue*)upvalue->next)
+    {
+        mark_obj((Obj*)upvalue);
+    }
+}
+
 void collect_garbage()
 {
 #ifdef DEBUG_LOG_GC
-    printf("-- gc begin\n");
+    printf("\n-- gc begin\n");
 #endif
-
-
-
+    mark_roots();
 #ifdef DEBUG_LOG_GC
-    printf("-- gc end\n");
+    printf("\n-- gc end\n");
 #endif
 }

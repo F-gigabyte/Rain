@@ -30,9 +30,10 @@ static Obj* allocate_obj(size_t size, ObjType type)
     Obj* obj = (Obj*)reallocate(NULL, 0, size);
     obj->type = type;
     obj->next = vm.objects;
+    obj->marked = false;
     vm.objects = obj;
 #ifdef DEBUG_LOG_GC
-    printf("%p allocated %zu for %d\n", (void*)obj, size, type);
+    printf("%p allocated %zu bytes for %s\n", (void*)obj, size, get_obj_type_name(type));
 #endif
     return obj;
 }
@@ -330,3 +331,42 @@ ObjUpvalue* new_upvalue(Value* loc)
     upvalue->value = loc;
     return upvalue;
 }
+
+#ifdef DEBUG_LOG_GC
+
+const char* get_obj_type_name(ObjType type)
+{
+    switch(type)
+    {
+        case OBJ_FUNC:
+        {
+            return "func";
+        }
+        case OBJ_ARRAY:
+        {
+            return "array";
+        }
+        case OBJ_NATIVE:
+        {
+            return "native func";
+        }
+        case OBJ_STRING:
+        {
+            return "string";
+        }
+        case OBJ_CLOSURE:
+        {
+            return "closure";
+        }
+        case OBJ_UPVALUE:
+        {
+            return "upvalue";
+        }
+        default:
+        {
+            return "unknown";
+        }
+    }
+}
+
+#endif

@@ -34,6 +34,7 @@ typedef enum {
 
 struct Obj {
     ObjType type;
+    bool marked;
     struct Obj* next;
 };
 
@@ -111,5 +112,9 @@ ObjClosure* new_closure(ObjFunc* func, size_t num_upvalues);
 ObjUpvalue* new_upvalue(Value* loc);
 ObjNative* new_native(NativeFn func, ObjString* name, size_t args);
 ObjString* obj_to_str(Value value);
+
+#ifdef DEBUG_LOG_GC
+const char* get_obj_type_name(ObjType type);
+#endif
 
 #endif
