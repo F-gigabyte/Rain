@@ -2100,6 +2100,8 @@ static void define_natives()
 {
     define_native("time", time_native, 0);
     define_native("print", print_native, 1);
+    define_native("println", println_native, 1);
+    define_native("input", input_native, 1);
 }
 
 bool compile(const char* src, Chunk* chunk, HashTable* global_names)

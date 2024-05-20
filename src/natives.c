@@ -1,6 +1,7 @@
 #include <natives.h>
 #include <time.h>
 #include <stdio.h>
+#include <object.h>
 
 Value time_native(Value* args)
 {
@@ -15,6 +16,25 @@ Value time_native(Value* args)
 Value print_native(Value* args)
 {
     print_value(args[0]);
+    return NULL_VAL;
+}
+
+Value println_native(Value* args)
+{
+    print_value(args[0]);
     printf("\n");
     return NULL_VAL;
+}
+
+Value input_native(Value* args)
+{
+    print_value(args[0]);
+    char* input = NULL;
+    size_t input_size = 0;
+    ssize_t len = getline(&input, &input_size, stdin);
+    if(len == -1)
+    {
+        return NULL_VAL;
+    }
+    return OBJ_VAL((Obj*)take_str(input, len));
 }

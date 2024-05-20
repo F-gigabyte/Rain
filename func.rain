@@ -1,16 +1,16 @@
 func test_func(a, b)
 {
-    print("a is {a} and b is {b}!");
+    println("a is {a} and b is {b}!");
 }
 
-print("Outside test_func");
+println("Outside test_func");
 
 
-print("Function is {test_func}");
+println("Function is {test_func}");
 {
     func test_func2(a, b)
     {
-        print("b is {b} and a is {a}");
+        println("b is {b} and a is {a}");
     }
-    print(test_func2(1, 2));
+    println(test_func2(1, 2));
 }

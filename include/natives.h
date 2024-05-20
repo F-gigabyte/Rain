@@ -6,5 +6,7 @@
 
 Value time_native(Value* args);
 Value print_native(Value* args);
+Value println_native(Value* args);
+Value input_native(Value* args);
 
 #endif

@@ -6,12 +6,12 @@ func outer()
     {
         func inner()
         {
-            print(x);
+            println(x);
         }
-        print("create inner closure");
+        println("create inner closure");
         ret inner;
     }
-    print("return from outer");
+    println("return from outer");
     ret middle;
 }
 
