@@ -4,6 +4,7 @@
 #include <object.h>
 #include <string.h>
 #include <convert.h>
+#include <vm.h>
 
 void init_value_array(ValueArray* array)
 {
@@ -68,8 +69,10 @@ void free_value_array(ValueArray* array)
 
 void print_value(Value value)
 {
+    vm.gc = false;
     ObjString* text = value_to_str(value);
     printf("%s", text->chars);
+    vm.gc = true;
 }
 
 ObjString* value_to_str(Value value)

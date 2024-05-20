@@ -2,6 +2,7 @@
 #include <rain_memory.h>
 #include <object.h>
 #include <string.h>
+#include <vm.h>
 
 #define TABLE_MAX_LOAD 0.75
 #define NULL_VAR (VarValue){.constant = false, .value = NULL_VAL}
@@ -192,4 +193,16 @@ uint8_t hash_table_is_const(HashTable* table, ObjString* key)
         return 0;
     }
     return entry->var.constant == true ? 2 : 1;
+}
+
+void hash_table_remove_clear(HashTable* table)
+{
+    for(size_t i = 0; i < table->capacity; i++)
+    {
+        Entry* entry = &table->entries[i];
+        if(entry->key != NULL && entry->key->obj.type_fields.marked != vm.mark_bit && !entry->key->obj.type_fields.immortal)
+        {
+            hash_table_delete(table, entry->key);
+        }
+    }
 }

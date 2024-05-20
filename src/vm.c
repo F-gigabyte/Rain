@@ -62,6 +62,13 @@ void init_vm()
     vm.objects = NULL;
     vm.open_upvalues = NULL;
     vm.running = false;
+    vm.gc = true;
+    vm.gray_size = 0;
+    vm.gray_capacity = 0;
+    vm.gray_stack = NULL;
+    vm.mark_bit = true;
+    vm.bytes_allocated = 0;
+    vm.next_gc =  0x1000;
     init_hash_table(&vm.strings);
 }
 
@@ -182,7 +189,7 @@ static void init_closure(ObjClosure* closure)
         }
         closure->upvalues[i].upvalue = capture_upvalue(loc);
     }
-    closure->loaded = true;
+    closure->obj.type_fields.defined = true;
 }
 
 static void call(ObjFunc* func)
@@ -252,6 +259,7 @@ static InterpretResult run()
     vm.running = true;
     for(;;)
     {
+        vm.gc = true;
 #ifdef DEBUG_TRACE_EXECUTION
         printf("        ");
         for(Value* slot = vm.stack_base; slot < vm.stack_top; slot++)
@@ -1431,5 +1439,9 @@ Value pop()
 void free_vm()
 {
     free_hash_table(&vm.strings);
+    free(vm.gray_stack);
+    vm.gray_size = 0;
+    vm.gray_capacity = 0;
+    vm.gray_stack = NULL;
     free_objs();
 }

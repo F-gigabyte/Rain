@@ -1708,6 +1708,7 @@ static Value parse_variable(const char* error_msg, bool constant)
         error(buffer);
         FREE(char, buffer);
     }
+    AS_OBJ(name)->type_fields.immortal = true;
     return add_global(name, constant);
 }
 
@@ -1750,7 +1751,7 @@ static void function(Value val)
     size_t offset = current_chunk()->size;
     ObjFunc* func = new_func();
     func->name = func_name;
-    func->defined = true;
+    func->obj.type_fields.defined = true;
     func->num_inputs = 0;
     func->offset = offset;
     add_frame();
@@ -2089,6 +2090,7 @@ static void resolve_jump_table(Chunk* obj_chunk, Chunk* res)
 static void define_native(const char* name, NativeFn func, size_t args)
 {
     ObjString* func_name = copy_str(name, strlen(name));
+    func_name->obj.type_fields.immortal = true;
     Value pos = add_global(OBJ_VAL((Obj*)func_name), true);
     current_chunk()->globals.values[(size_t)AS_INT(pos)] = OBJ_VAL((Obj*)new_native(func, func_name, args));
 }

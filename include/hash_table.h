@@ -31,5 +31,6 @@ uint8_t hash_table_is_const(HashTable* table, ObjString* key);
 bool hash_table_delete(HashTable* table, ObjString* key);
 void copy_hash_table(HashTable* from, HashTable* to);
 ObjString* hash_table_find_str(HashTable* table, const char* chars, size_t len, uint32_t hash);
+void hash_table_remove_clear(HashTable* table);
 
 #endif

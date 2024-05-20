@@ -28,9 +28,10 @@ static uint32_t hash_str(const char* str, size_t len)
 static Obj* allocate_obj(size_t size, ObjType type)
 {
     Obj* obj = (Obj*)reallocate(NULL, 0, size);
-    obj->type = type;
+    obj->type_fields.type = type;
     obj->next = vm.objects;
-    obj->marked = false;
+    obj->type_fields.marked = false;
+    obj->type_fields.defined = false;
     vm.objects = obj;
 #ifdef DEBUG_LOG_GC
     printf("%p allocated %zu bytes for %s\n", (void*)obj, size, get_obj_type_name(type));
@@ -297,7 +298,6 @@ ObjArray* fill_array(int64_t len, Value* values)
 ObjFunc* new_func()
 {
     ObjFunc* func = ALLOCATE_OBJ(ObjFunc, OBJ_FUNC);
-    func->defined = false;
     func->name = NULL;
     func->num_inputs = 0;
     func->offset = 0;
@@ -318,7 +318,6 @@ ObjClosure* new_closure(ObjFunc* func, size_t num_upvalues)
     ObjClosure* closure = ALLOCATE_CLOSURE(num_upvalues);
     closure->func = func;
     closure->num_upvalues = num_upvalues;
-    closure->loaded = false;
     memset(closure->upvalues, 0, sizeof(UpvalueIndex) * num_upvalues);
     return closure;
 }

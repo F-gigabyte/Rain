@@ -19,7 +19,14 @@ typedef struct {
     HashTable strings;
     Obj* objects;
     ObjUpvalue* open_upvalues;
+    size_t gray_size;
+    size_t gray_capacity;
+    Obj** gray_stack;
     bool running;
+    bool mark_bit;
+    bool gc;
+    size_t bytes_allocated;
+    size_t next_gc;
 } VM;
 
 typedef enum {

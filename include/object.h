@@ -4,7 +4,7 @@
 #include <common.h>
 #include <value.h>
 
-#define OBJ_TYPE(value)   (AS_OBJ(value)->type)
+#define OBJ_TYPE(value)   (AS_OBJ(value)->type_fields.type)
 #define IS_STRING(value)  is_obj_type(value, OBJ_STRING)
 #define IS_ARRAY(value) is_obj_type(value, OBJ_ARRAY)
 #define IS_FUNC(value) is_obj_type(value, OBJ_FUNC)
@@ -33,9 +33,14 @@ typedef enum {
 } ObjType;
 
 struct Obj {
-    ObjType type;
-    bool marked;
     struct Obj* next;
+    struct
+    {
+        ObjType type;
+        bool marked;
+        bool immortal;
+        bool defined;
+    } type_fields;
 };
 
 struct ObjString {
@@ -57,7 +62,6 @@ typedef struct
     ObjString* name;
     size_t offset;
     size_t num_inputs;
-    bool defined;
 } ObjFunc;
 
 typedef struct
@@ -79,7 +83,6 @@ typedef struct
     Obj obj;
     ObjFunc* func;
     size_t num_upvalues;
-    bool loaded;
     union
     {
         ObjUpvalue* upvalue;
@@ -99,7 +102,7 @@ typedef struct
 
 static inline bool is_obj_type(Value value, ObjType type)
 {
-    return IS_OBJ(value) && AS_OBJ(value)->type == type;
+    return IS_OBJ(value) && AS_OBJ(value)->type_fields.type == type;
 }
 
 ObjString* take_str(char* chars, size_t len);
