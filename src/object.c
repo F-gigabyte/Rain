@@ -267,6 +267,24 @@ ObjString* obj_to_str(Value value)
         {
             return copy_str("Upvalue", 7);
         }
+        case OBJ_CLASS:
+        {
+            size_t len = snprintf(NULL, 0, "<class %s>", AS_CLASS(value)->name->chars);
+            char* res_chars = ALLOCATE(char, len + 1);
+            snprintf(res_chars, len + 1, "<class %s>", AS_CLASS(value)->name->chars);
+            return take_str(res_chars, len);
+        }
+        case OBJ_INSTANCE:
+        {
+            size_t len = snprintf(NULL, 0, "<instance of class %s>", AS_INSTANCE(value)->klass->name->chars);
+            char* res_chars = ALLOCATE(char, len + 1);
+            snprintf(res_chars, len + 1, "<instance of class %s>", AS_INSTANCE(value)->klass->name->chars);
+            return take_str(res_chars, len);
+        }
+        case OBJ_BOUND_METHOD:
+        {
+            return obj_to_str(OBJ_VAL((Obj*)AS_BOUND_METHOD(value)->method));
+        }
         default:
         {
             return copy_str("Unknown Object", 14);
@@ -331,6 +349,30 @@ ObjUpvalue* new_upvalue(Value* loc)
     return upvalue;
 }
 
+ObjClass* new_class(ObjString* name)
+{
+    ObjClass* klass = ALLOCATE_OBJ(ObjClass, OBJ_CLASS);
+    klass->name = name;
+    init_hash_table(&klass->attributes);
+    return klass;
+}
+
+ObjInstance* new_instance(ObjClass* klass)
+{
+    ObjInstance* instance = ALLOCATE_OBJ(ObjInstance, OBJ_INSTANCE);
+    instance->klass = klass;
+    copy_hash_table(&klass->attributes, &instance->attributes);
+    return instance;
+}
+
+ObjBoundMethod* new_bound_method(Value reciever, Obj* method)
+{
+    ObjBoundMethod* bound = ALLOCATE_OBJ(ObjBoundMethod, OBJ_BOUND_METHOD);
+    bound->reciever = reciever;
+    bound->method = method;
+    return bound;
+}
+
 #ifdef DEBUG_LOG_GC
 
 const char* get_obj_type_name(ObjType type)
@@ -360,6 +402,18 @@ const char* get_obj_type_name(ObjType type)
         case OBJ_UPVALUE:
         {
             return "upvalue";
+        }
+        case OBJ_CLASS:
+        {
+            return "class";
+        }
+        case OBJ_INSTANCE:
+        {
+            return "class instance";
+        }
+        case OBJ_BOUND_METHOD:
+        {
+            return "bound method";
         }
         default:
         {

@@ -91,6 +91,34 @@ typedef enum
     OP_CLOSURE_WORD,
     OP_CLOSURE_LONG,
     OP_CLOSE_UPVALUE,
+    OP_ATTR_BYTE,
+    OP_ATTR_SHORT,
+    OP_ATTR_WORD,
+    OP_ATTR_LONG,
+    OP_ATTR_GET_BYTE,
+    OP_ATTR_GET_SHORT,
+    OP_ATTR_GET_WORD,
+    OP_ATTR_GET_LONG,
+    OP_ATTR_PEEK_BYTE,
+    OP_ATTR_PEEK_SHORT,
+    OP_ATTR_PEEK_WORD,
+    OP_ATTR_PEEK_LONG,
+    OP_ATTR_SET_BYTE,
+    OP_ATTR_SET_SHORT,
+    OP_ATTR_SET_WORD,
+    OP_ATTR_SET_LONG,
+    OP_ATTR_GET_THIS_BYTE,
+    OP_ATTR_GET_THIS_SHORT,
+    OP_ATTR_GET_THIS_WORD,
+    OP_ATTR_GET_THIS_LONG,
+    OP_ATTR_PEEK_THIS_BYTE,
+    OP_ATTR_PEEK_THIS_SHORT,
+    OP_ATTR_PEEK_THIS_WORD,
+    OP_ATTR_PEEK_THIS_LONG,
+    OP_ATTR_SET_THIS_BYTE,
+    OP_ATTR_SET_THIS_SHORT,
+    OP_ATTR_SET_THIS_WORD,
+    OP_ATTR_SET_THIS_LONG,
     OP_EXIT,
 } Opcode;
 
@@ -128,6 +156,20 @@ void write_chunk_get_local_var(Chunk* chunk, size_t const_index, size_t line);
 void write_chunk_set_local_var(Chunk* chunk, size_t const_index, size_t line);
 // writes a closure instruction to the bytecode
 void write_chunk_closure(Chunk* chunk, size_t const_index, size_t line);
+// writes an attribute instruction to the bytecode
+void write_chunk_attr(Chunk* chunk, size_t const_index, uint8_t visibility, size_t line);
+// writes an attribute get instruction to the bytecode
+void write_chunk_attr_get(Chunk* chunk, size_t const_index, size_t line);
+// writes an attribute peek instruction to the bytecode
+void write_chunk_attr_peek(Chunk* chunk, size_t const_index, size_t line);
+// writes an attribute set instruction to the bytecode
+void write_chunk_attr_set(Chunk* chunk, size_t const_index, size_t line);
+// writes an attribute get this instruction to the bytecode
+void write_chunk_attr_get_this(Chunk* chunk, size_t const_index, size_t line);
+// writes an attribute peek this instruction to the bytecode
+void write_chunk_attr_peek_this(Chunk* chunk, size_t const_index, size_t line);
+// writes an attribute set this instruction to the bytecode
+void write_chunk_attr_set_this(Chunk* chunk, size_t const_index, size_t line);
 // reads a constant index from the bytecode
 size_t read_chunk_const(inst_type* inst, size_t* offset, size_t off_size);
 // frees a chunk of bytecode

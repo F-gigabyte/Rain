@@ -414,7 +414,7 @@ static TokenType identifier_type()
         }
         case ('p'):
         {
-            if(scanner.current - scanner.start > 3)
+            if(scanner.current - scanner.start > 2)
             {
                 switch(scanner.start[1])
                 {

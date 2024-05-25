@@ -9,6 +9,7 @@
 #include <rain_memory.h>
 #include <string.h>
 #include <convert.h>
+#include <call_stack.h>
 
 #ifdef DEBUG_TRACE_EXECUTION
 #include <debug.h>
@@ -104,7 +105,8 @@ static size_t read_inst_index(size_t offset_size)
 static Value read_const(size_t offset_size)
 {
     size_t index = read_inst_index(offset_size);
-    return vm.chunk->consts.values[index];
+    Value val = vm.chunk->consts.values[index];
+    return val;
 }
 
 static Value read_global(size_t offset_size)
@@ -143,7 +145,7 @@ static bool setup_call(size_t expected_inputs)
         runtime_error("Expected %zu args but got %zu", expected_inputs, args);
         return false;
     }
-    vm.stack_base[-3] = INT_VAL((int64_t)(size_t)((vm.ip - vm.chunk->code)));
+    vm.stack_base[STACK_RET_ADDR] = INT_VAL((int64_t)(size_t)((vm.ip - vm.chunk->code)));
     return true;
 }
 
@@ -192,12 +194,152 @@ static void init_closure(ObjClosure* closure)
     closure->obj.type_fields.defined = true;
 }
 
+#define READ_STRING(offset_size) AS_STRING(read_const(offset_size))
+
+static bool get_attr(size_t bytes, bool get)
+{
+    if(!IS_INSTANCE(peek(0)))
+    {
+        runtime_error("Only instances have attributes");
+        return false;
+    }
+    ObjInstance* instance = AS_INSTANCE(peek(0));
+    ObjString* name = READ_STRING(bytes);
+    Value val;
+    if(hash_table_get(&instance->attributes, name, &val))
+    {
+        uint8_t scope = hash_table_get_scope(&instance->attributes, name) - 1;
+        if(!IS_VAR_PUB(scope))
+        {
+            runtime_error("Trying to access non public attribute '%s'", name->chars);
+            return false;
+        }
+        if(IS_VAR_METHOD(scope))
+        {
+            ObjBoundMethod* bound = new_bound_method(peek(0), AS_OBJ(val));
+            val = OBJ_VAL((Obj*)bound);
+        }
+        if(get)
+        {
+            pop();
+        }
+        push(val);
+    }
+    else
+    {
+        runtime_error("Undefined attribute '%s'", name->chars);
+        return false;
+    }
+    return true;
+}
+
+static bool get_this_attr(size_t bytes, bool get)
+{
+    if(!IS_INSTANCE(peek(0)))
+    {
+        runtime_error("Only instances have attributes");
+        return false;
+    }
+    ObjInstance* instance = AS_INSTANCE(peek(0));
+    ObjString* name = READ_STRING(bytes);
+    Value val;
+    if(hash_table_get(&instance->attributes, name, &val))
+    {
+        uint8_t scope = hash_table_get_scope(&instance->attributes, name) - 1;
+        if(IS_VAR_METHOD(scope))
+        {
+            ObjBoundMethod* bound = new_bound_method(peek(0), AS_OBJ(val));
+            val = OBJ_VAL((Obj*)bound);
+        }
+        if(get)
+        {
+            pop();
+        }
+        push(val);
+    }
+    else
+    {
+        runtime_error("Undefined attribute '%s'", name->chars);
+        return false;
+    }
+    return true;
+}
+
+static bool set_attr(size_t bytes)
+{
+    if(!IS_INSTANCE(peek(1)))
+    {
+        runtime_error("Only instances have attributes");
+        return INTERPRET_RUNTIME_ERROR;
+    }
+    ObjInstance* instance = AS_INSTANCE(peek(1));
+    ObjString* name = READ_STRING(bytes);
+    uint8_t scope = hash_table_get_scope(&instance->attributes, name);
+    if(scope > 0)
+    {
+        scope -= 1;
+        if(!IS_VAR_PUB(scope))
+        {
+            runtime_error("Trying to access non public attribute '%s'", name->chars);
+            return false;
+        }
+        else if(IS_VAR_CONST(scope))
+        {
+            runtime_error("Assigning to constant attribute '%s'", name->chars);
+            return false;
+        }
+        hash_table_set(&instance->attributes, name, peek(0));
+        Value value = pop();
+        pop();
+        push(value);
+    }
+    else
+    {
+        runtime_error("Undefined attribute '%s'", name->chars);
+        return false;
+    }
+    return true;
+}
+
+static bool set_this_attr(size_t bytes)
+{
+    if(!IS_INSTANCE(peek(1)))
+    {
+        runtime_error("Only instances have attributes");
+        return INTERPRET_RUNTIME_ERROR;
+    }
+    ObjInstance* instance = AS_INSTANCE(peek(1));
+    ObjString* name = READ_STRING(bytes);
+    uint8_t scope = hash_table_get_scope(&instance->attributes, name);
+    if(scope > 0)
+    {
+        scope -= 1;
+        if(IS_VAR_CONST(scope))
+        {
+            runtime_error("Assigning to constant attribute '%s'", name->chars);
+            return false;
+        }
+        hash_table_set(&instance->attributes, name, peek(0));
+        Value value = pop();
+        pop();
+        push(value);
+    }
+    else
+    {
+        runtime_error("Undefined attribute '%s'", name->chars);
+        return false;
+    }
+    return true;
+}
+
+#undef READ_STRING
+
 static void call(ObjFunc* func)
 {
     vm.ip = vm.chunk->code + func->offset;
 }
 
-static bool call_value(Value callee)
+static bool call_value(Value callee, size_t extra_inputs)
 {
     if(IS_OBJ(callee))
     {
@@ -206,7 +348,7 @@ static bool call_value(Value callee)
             case OBJ_FUNC:
             {
                 ObjFunc* func = AS_FUNC(callee);
-                if(!setup_call(func->num_inputs))
+                if(!setup_call(func->num_inputs + extra_inputs))
                 {
                     return false;
                 }
@@ -216,17 +358,23 @@ static bool call_value(Value callee)
             case OBJ_CLOSURE:
             {
                 ObjFunc* func = AS_CLOSURE(callee)->func;
-                if(!setup_call(func->num_inputs))
+                if(!setup_call(func->num_inputs + extra_inputs))
                 {
                     return false;
                 }
                 call(func);
                 return true;
             }
+            case OBJ_BOUND_METHOD:
+            {
+                ObjBoundMethod* bound = AS_BOUND_METHOD(callee);
+                push(bound->reciever);
+                return call_value(OBJ_VAL(bound->method), 1);
+            }
             case OBJ_NATIVE:
             {
                 ObjNative* native = AS_NATIVE(callee);
-                if(!setup_call(native->num_inputs))
+                if(!setup_call(native->num_inputs + extra_inputs))
                 {
                     return false;
                 }
@@ -242,6 +390,25 @@ static bool call_value(Value callee)
                 push(ret);
                 return true;
             }
+            case OBJ_CLASS:
+            {
+                ObjClass* klass = AS_CLASS(callee);
+                if(!setup_call(0))
+                {
+                    return false;
+                }
+                Value ret = OBJ_VAL((Obj*)new_instance(klass));
+                close_func_upvalues();
+                vm.stack_top = vm.stack_base;
+                Value call_base_addr = pop();
+                Value base_addr = pop();
+                pop();
+                vm.call_base = (Value*)(size_t)AS_INT(call_base_addr);
+                vm.stack_base = (Value*)(size_t)AS_INT(base_addr);
+                pop();
+                push(ret);
+                return true;
+            }
             default:
             {
                 break;
@@ -250,6 +417,16 @@ static bool call_value(Value callee)
     }
     runtime_error("Calling a variable that isn't a function or class");
     return false;
+}
+
+static void define_attr(ObjString* name)
+{
+    Value attr = peek(0);
+    ObjClass* klass = AS_CLASS(peek(1));
+    uint8_t scope = (uint8_t)*vm.ip;
+    vm.ip++;
+    hash_table_insert(&klass->attributes, name, scope, attr);
+    pop();
 }
 
 #define READ_STRING(offset_size) AS_STRING(read_const(offset_size))
@@ -1334,7 +1511,7 @@ static InterpretResult run()
             }
             case OP_CALL:
             {
-                if(!call_value(vm.call_base[-4]))
+                if(!call_value(vm.call_base[-4], 0))
                 {
                     return INTERPRET_RUNTIME_ERROR;
                 }
@@ -1376,6 +1553,218 @@ static InterpretResult run()
                 push(OBJ_VAL((Obj*)closure));
                 break;
             }
+            case OP_ATTR_BYTE:
+            {
+                define_attr(READ_STRING(1));
+                break;
+            }
+            case OP_ATTR_SHORT:
+            {
+                define_attr(READ_STRING(2));
+                break;
+            }
+            case OP_ATTR_WORD:
+            {
+                define_attr(READ_STRING(4));
+                break;
+            }
+            case OP_ATTR_LONG:
+            {
+                define_attr(READ_STRING(8));
+                break;
+            }
+            case OP_ATTR_GET_BYTE:
+            {
+                if(get_attr(1, true))
+                {
+                    break;    
+                }
+                return INTERPRET_RUNTIME_ERROR;
+            }
+            case OP_ATTR_GET_SHORT:
+            {
+                if(get_attr(2, true))
+                {
+                    break;    
+                }
+                return INTERPRET_RUNTIME_ERROR;
+            }
+            case OP_ATTR_GET_WORD:
+            {
+                if(get_attr(4, true))
+                {
+                    break;    
+                }
+                return INTERPRET_RUNTIME_ERROR;
+            }
+            case OP_ATTR_GET_LONG:
+            {
+                if(get_attr(8, true))
+                {
+                    break;    
+                }
+                return INTERPRET_RUNTIME_ERROR;
+            }
+            case OP_ATTR_PEEK_BYTE:
+            {
+                if(get_attr(1, false))
+                {
+                    break;
+                }
+                return INTERPRET_RUNTIME_ERROR;
+            }
+            case OP_ATTR_PEEK_SHORT:
+            {
+                if(get_attr(2, false))
+                {
+                    break;
+                }
+                return INTERPRET_RUNTIME_ERROR;
+            }
+            case OP_ATTR_PEEK_WORD:
+            {
+                if(get_attr(4, false))
+                {
+                    break;
+                }
+                return INTERPRET_RUNTIME_ERROR;
+            }
+            case OP_ATTR_PEEK_LONG:
+            {
+                if(get_attr(8, false))
+                {
+                    break;
+                }
+                return INTERPRET_RUNTIME_ERROR;
+            }
+            case OP_ATTR_SET_BYTE:
+            {
+                if(set_attr(1))
+                {
+                    break;
+                }
+                return INTERPRET_RUNTIME_ERROR;
+            }
+            case OP_ATTR_SET_SHORT:
+            {
+                if(set_attr(2))
+                {
+                    break;
+                }
+                return INTERPRET_RUNTIME_ERROR;
+            }
+            case OP_ATTR_SET_WORD:
+            {
+                if(set_attr(4))
+                {
+                    break;
+                }
+                return INTERPRET_RUNTIME_ERROR;
+            }
+            case OP_ATTR_SET_LONG:
+            {
+                if(set_attr(8))
+                {
+                    break;
+                }
+                return INTERPRET_RUNTIME_ERROR;
+            }
+            case OP_ATTR_GET_THIS_BYTE:
+            {
+                if(get_this_attr(1, true))
+                {
+                    break;    
+                }
+                return INTERPRET_RUNTIME_ERROR;
+            }
+            case OP_ATTR_GET_THIS_SHORT:
+            {
+                if(get_this_attr(2, true))
+                {
+                    break;    
+                }
+                return INTERPRET_RUNTIME_ERROR;
+            }
+            case OP_ATTR_GET_THIS_WORD:
+            {
+                if(get_this_attr(4, true))
+                {
+                    break;    
+                }
+                return INTERPRET_RUNTIME_ERROR;
+            }
+            case OP_ATTR_GET_THIS_LONG:
+            {
+                if(get_this_attr(8, true))
+                {
+                    break;    
+                }
+                return INTERPRET_RUNTIME_ERROR;
+            }
+            case OP_ATTR_PEEK_THIS_BYTE:
+            {
+                if(get_this_attr(1, false))
+                {
+                    break;
+                }
+                return INTERPRET_RUNTIME_ERROR;
+            }
+            case OP_ATTR_PEEK_THIS_SHORT:
+            {
+                if(get_this_attr(2, false))
+                {
+                    break;
+                }
+                return INTERPRET_RUNTIME_ERROR;
+            }
+            case OP_ATTR_PEEK_THIS_WORD:
+            {
+                if(get_this_attr(4, false))
+                {
+                    break;
+                }
+                return INTERPRET_RUNTIME_ERROR;
+            }
+            case OP_ATTR_PEEK_THIS_LONG:
+            {
+                if(get_this_attr(8, false))
+                {
+                    break;
+                }
+                return INTERPRET_RUNTIME_ERROR;
+            }
+            case OP_ATTR_SET_THIS_BYTE:
+            {
+                if(set_this_attr(1))
+                {
+                    break;
+                }
+                return INTERPRET_RUNTIME_ERROR;
+            }
+            case OP_ATTR_SET_THIS_SHORT:
+            {
+                if(set_this_attr(2))
+                {
+                    break;
+                }
+                return INTERPRET_RUNTIME_ERROR;
+            }
+            case OP_ATTR_SET_THIS_WORD:
+            {
+                if(set_this_attr(4))
+                {
+                    break;
+                }
+                return INTERPRET_RUNTIME_ERROR;
+            }
+            case OP_ATTR_SET_THIS_LONG:
+            {
+                if(set_this_attr(8))
+                {
+                    break;
+                }
+                return INTERPRET_RUNTIME_ERROR;
+            }
             default:
             {
                 runtime_error("Unknown instruction %u", inst);
@@ -1385,7 +1774,6 @@ static InterpretResult run()
     }
     vm.running = false;
 }
-
 #undef READ_INST
 #undef READ_STRING
 

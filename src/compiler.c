@@ -387,14 +387,14 @@ typedef struct {
 
 typedef struct {
     Token name;
-    bool constant;
+    uint8_t visibility;
     bool captured;
     size_t depth;
 } Local;
 
 typedef struct {
     size_t index;
-    bool constant;
+    uint8_t visibility;
     bool local;
 } Upvalue;
 
@@ -405,6 +405,7 @@ typedef struct {
     Upvalue* upvalues;
     size_t upvalues_size;
     size_t upvalues_capacity;
+    bool in_class;
 } Scope;
 
 typedef enum
@@ -440,7 +441,7 @@ Compiler* current = NULL;
 
 Chunk* compiling_chunk;
 
-static void var_declaration(bool constant);
+static void var_declaration(uint8_t scope);
 
 ParseRule rules[];
 
@@ -525,6 +526,7 @@ static void init_compiler(Compiler* compiler)
     compiler->scope.upvalues_size = 0;
     compiler->scope.upvalues_capacity = 0;
     compiler->scope.upvalues = NULL;
+    compiler->scope.in_class = false;
     compiler->prev_scopes = NULL;
     compiler->prev_scopes_size = 0;
     compiler->prev_scopes_capacity = 0;
@@ -609,6 +611,41 @@ static void emit_closure(ObjFunc* func)
         closure->upvalues[i].indexes.local = current->scope.upvalues[i].local;
     }
     write_chunk_closure(current_chunk(), make_const(OBJ_VAL((Obj*)closure)), parser.previous.line);
+}
+
+static void emit_attr(Value value, uint8_t visibility)
+{
+    write_chunk_attr(current_chunk(), make_const(value), visibility, parser.previous.line);
+}
+
+static void emit_attr_get(Value value)
+{
+    write_chunk_attr_get(current_chunk(), make_const(value), parser.previous.line);
+}
+
+static void emit_attr_peek(Value value)
+{
+    write_chunk_attr_peek(current_chunk(), make_const(value), parser.previous.line);
+}
+
+static void emit_attr_set(Value value)
+{
+    write_chunk_attr_set(current_chunk(), make_const(value), parser.previous.line);
+}
+
+static void emit_attr_get_this(Value value)
+{
+    write_chunk_attr_get_this(current_chunk(), make_const(value), parser.previous.line);
+}
+
+static void emit_attr_peek_this(Value value)
+{
+    write_chunk_attr_peek_this(current_chunk(), make_const(value), parser.previous.line);
+}
+
+static void emit_attr_set_this(Value value)
+{
+    write_chunk_attr_set_this(current_chunk(), make_const(value), parser.previous.line);
 }
 
 static size_t reserve_const()
@@ -873,6 +910,7 @@ static void call(bool assignable)
     size_t inputs = push_arguments();
     emit_inst(OP_CALL);
 }
+
 
 static void unary(bool assignable)
 {
@@ -1211,14 +1249,14 @@ static void named_variable(Token name, bool assignable)
             }
             else
             {
-                constant = hash_table_is_const(&current->globals, AS_STRING(global_name)) == 2;
+                constant = IS_VAR_CONST(hash_table_get_scope(&current->globals, AS_STRING(global_name)) - 1);
             }
         }
         else
         {
             upvalue = true;
             size_t index = (size_t)AS_INT(arg);
-            if(current->scope.upvalues[index].constant)
+            if(IS_VAR_CONST(current->scope.upvalues[index].visibility))
             {
                 constant = true;
             }
@@ -1227,7 +1265,7 @@ static void named_variable(Token name, bool assignable)
     else
     {
         size_t index = (size_t)AS_INT(arg);
-        if(current->scope.locals[index].constant)
+        if(IS_VAR_CONST(current->scope.locals[index].visibility))
         {
             constant = true;
         }
@@ -1266,12 +1304,52 @@ static void named_variable(Token name, bool assignable)
     }
 }
 
-#undef EMIT_ASSIGNMENT
+static void dot(bool assignable)
+{
+    consume(TOKEN_IDENT, "Expect property name after '.'");
+    ObjString* name = copy_str(parser.previous.start, parser.previous.len);
+    if(assignable && (check(TOKEN_EQL) || check(TOKEN_PLUS_EQL) || check(TOKEN_MINUS_EQL) || check(TOKEN_STAR_EQL) || check(TOKEN_SLASH_EQL) || check(TOKEN_PERC_EQL) || check(TOKEN_UP_EQL) || check(TOKEN_AMP_EQL) || check(TOKEN_LINE_EQL) || check(TOKEN_LESS_LESS_EQL) || check(TOKEN_GREATER_GREATER_EQL) || check(TOKEN_PLUS_PLUS) || check(TOKEN_MINUS_MINUS)))
+    {
+        EMIT_ASSIGNMENT(emit_attr_peek(OBJ_VAL((Obj*)name)));
+        emit_attr_set(OBJ_VAL((Obj*)name));
+    }
+    else
+    {
+        emit_attr_get(OBJ_VAL((Obj*)name));
+    }
+}
+
 
 static void variable(bool assignable)
 {
     named_variable(parser.previous, assignable);
 }
+
+static void this_(bool assignable)
+{
+    if(!current->scope.in_class)
+    {
+        error("Can't use 'this' outside of a class");
+        return;
+    }
+    variable(false);
+    if(match(TOKEN_DOT))
+    {
+        consume(TOKEN_IDENT, "Expect property name after '.'");
+        ObjString* name = copy_str(parser.previous.start, parser.previous.len);
+        if(assignable && (check(TOKEN_EQL) || check(TOKEN_PLUS_EQL) || check(TOKEN_MINUS_EQL) || check(TOKEN_STAR_EQL) || check(TOKEN_SLASH_EQL) || check(TOKEN_PERC_EQL) || check(TOKEN_UP_EQL) || check(TOKEN_AMP_EQL) || check(TOKEN_LINE_EQL) || check(TOKEN_LESS_LESS_EQL) || check(TOKEN_GREATER_GREATER_EQL) || check(TOKEN_PLUS_PLUS) || check(TOKEN_MINUS_MINUS)))
+        {
+            EMIT_ASSIGNMENT(emit_attr_peek_this(OBJ_VAL((Obj*)name)));
+            emit_attr_set_this(OBJ_VAL((Obj*)name));
+        }
+        else
+        {
+            emit_attr_get_this(OBJ_VAL((Obj*)name));
+        }
+    }
+}
+
+#undef EMIT_ASSIGNMENT
 
 static void and_(bool assignable)
 {
@@ -1439,11 +1517,11 @@ static void for_statement(bool in_func)
     }
     else if(match(TOKEN_VAR))
     {
-        var_declaration(false);
+        var_declaration(VAR_PUB);
     }
     else if(match(TOKEN_CONST))
     {
-        var_declaration(true);
+        var_declaration(VAR_PUB | VAR_CONST);
     }
     else
     {
@@ -1583,7 +1661,7 @@ static Value resolve_local(Scope* scope, Token* name)
     return NULL_VAL;
 }
 
-static size_t add_upvalue(Scope* scope, size_t index, bool local, bool constant)
+static size_t add_upvalue(Scope* scope, size_t index, bool local, uint8_t visibility)
 {
     for(size_t i = 0; i < scope->upvalues_size; i++)
     {
@@ -1600,7 +1678,7 @@ static size_t add_upvalue(Scope* scope, size_t index, bool local, bool constant)
         scope->upvalues_capacity = new_cap;
         scope->upvalues = new_upvalues;
     }
-    scope->upvalues[scope->upvalues_size] = (Upvalue){.index = index, .constant = constant, .local = local};
+    scope->upvalues[scope->upvalues_size] = (Upvalue){.index = index, .visibility = visibility, .local = local};
     scope->upvalues_size++;
     return scope->upvalues_size - 1;
 }
@@ -1615,18 +1693,18 @@ static Value resolve_upvalue(Token* name, Scope* scope, size_t index)
     if(!IS_NULL(local))
     {
         size_t local_index = (size_t)AS_INT(local);
-        return INT_VAL(add_upvalue(scope, local_index, true, current->prev_scopes[index - 1].locals[local_index].constant));
+        return INT_VAL(add_upvalue(scope, local_index, true, current->prev_scopes[index - 1].locals[local_index].visibility));
     }
     Value upvalue = resolve_upvalue(name, &current->prev_scopes[index - 1], index - 1);
     if(!IS_NULL(upvalue))
     {
         size_t upvalue_index = (size_t)AS_INT(upvalue);
-        return INT_VAL(add_upvalue(scope, upvalue_index, false, current->prev_scopes[index - 1].upvalues[upvalue_index].constant));
+        return INT_VAL(add_upvalue(scope, upvalue_index, false, current->prev_scopes[index - 1].upvalues[upvalue_index].visibility));
     }
     return NULL_VAL;
 }
 
-static void add_local(Token name, bool constant)
+static void add_local(Token name, uint8_t visibility)
 {
     if(current->scope.locals_size >= current->scope.locals_capacity)
     {
@@ -1635,8 +1713,16 @@ static void add_local(Token name, bool constant)
         current->scope.locals_capacity = next_cap;
         current->scope.locals = new_locals;
     }
-    current->scope.locals[current->scope.locals_size] = (Local){.constant = constant, .name = name, .depth = 0, .captured = false}; 
+    current->scope.locals[current->scope.locals_size] = (Local){.visibility = visibility, .name = name, .depth = 0, .captured = false}; 
     current->scope.locals_size++;
+}
+
+static void remove_last_local()
+{
+    if(current->scope.locals_size > 0)
+    {
+        current->scope.locals_size--;
+    }
 }
 
 static void add_frame()
@@ -1649,7 +1735,7 @@ static void add_frame()
         current->prev_scopes_capacity = new_cap;
     }
     current->prev_scopes[current->prev_scopes_size] = current->scope;
-    current->scope = (Scope){.locals = NULL, .locals_size = 0, .locals_capacity = 0, .upvalues = NULL, .upvalues_size = 0, .upvalues_capacity = 0};
+    current->scope = (Scope){.locals = NULL, .locals_size = 0, .locals_capacity = 0, .upvalues = NULL, .upvalues_size = 0, .upvalues_capacity = 0, .in_class = current->scope.in_class};
     current->prev_scopes_size++;
 }
 
@@ -1665,15 +1751,15 @@ static void remove_frame()
     current->prev_scopes_size--;
 }
 
-static Value add_global(Value name, bool constant)
+static Value add_global(Value name, uint8_t visibility)
 {
     Value index = INT_VAL((int64_t)current_chunk()->globals.size);
-    hash_table_insert(&current->globals, AS_STRING(name), constant, index);
+    hash_table_insert(&current->globals, AS_STRING(name), visibility, index);
     write_value_array(&current_chunk()->globals, NULL_VAL);
     return index;
 }
 
-static Value parse_variable(const char* error_msg, bool constant)
+static Value parse_variable(const char* error_msg, uint8_t visibility)
 {
     consume(TOKEN_IDENT, error_msg);
     if(current->scope_depth > 0)
@@ -1695,7 +1781,7 @@ static Value parse_variable(const char* error_msg, bool constant)
                 FREE(char, buffer);
             }
         }
-        add_local(*name, constant);
+        add_local(*name, visibility);
         return NULL_VAL;
     }
     Value name = ident_constant(&parser.previous);
@@ -1709,7 +1795,7 @@ static Value parse_variable(const char* error_msg, bool constant)
         FREE(char, buffer);
     }
     AS_OBJ(name)->type_fields.immortal = true;
-    return add_global(name, constant);
+    return add_global(name, visibility);
 }
 
 static void mark_inititialised()
@@ -1721,9 +1807,9 @@ static void mark_inititialised()
     current->scope.locals[current->scope.locals_size - 1].depth = current->scope_depth + 1;
 }
 
-static void var_declaration(bool constant)
+static void var_declaration(uint8_t visibility)
 {
-    Value name = parse_variable("Expect variable name", constant);
+    Value name = parse_variable("Expect variable name", visibility);
     if(match(TOKEN_EQL))
     {
         expression();
@@ -1744,7 +1830,7 @@ static void var_declaration(bool constant)
     }
 }
 
-static void function(Value val)
+static void function(bool method, Value val)
 {
     ObjString* func_name = copy_str(parser.previous.start, parser.previous.len);
     size_t from = emit_jump(OP_JUMP_BYTE);
@@ -1757,18 +1843,19 @@ static void function(Value val)
     add_frame();
     begin_scope();
     consume(TOKEN_LEFT_PAREN, "Expect '(' after function name");
-    if(!check(TOKEN_RIGHT_PAREN))
+    if(!check(TOKEN_RIGHT_PAREN) && !check(TOKEN_EOF))
     {
-        parse_variable("Expect parameter name", false);
-        mark_inititialised(); // initialise parameter
-        func->num_inputs++;
-        while(!check(TOKEN_RIGHT_PAREN) && !check(TOKEN_EOF))
+        do
         {
-            consume(TOKEN_COMMA, "Expect ',' to separate function parameters");
             parse_variable("Expect parameter name", false);
             mark_inititialised(); // initialise parameter
             func->num_inputs++;
-        }
+        } while(match(TOKEN_COMMA));
+    }
+    if(method)
+    {
+        add_local((Token){.start = "this", .len = 4, .line = parser.previous.line, .type = TOKEN_THIS}, VAR_PUB);
+        mark_inititialised();
     }
     consume(TOKEN_RIGHT_PAREN, "Expect ')' after parameters");
     consume(TOKEN_LEFT_BRACE, "Expect '{' before function body");
@@ -1796,24 +1883,101 @@ static void function(Value val)
 
 static void func_declaration()
 {
-    Value val = parse_variable("Expect function name", true);
+    Value val = parse_variable("Expect function name", VAR_PUB | VAR_CONST);
     mark_inititialised();
-    function(val);
+    function(false, val);
+}
+
+static void method_declaration(uint8_t visibility)
+{
+    Value val = parse_variable("Expect function name", visibility | VAR_CONST);
+    mark_inititialised();
+    function(true, val);
+}
+
+static void class_declaration()
+{
+    Value val = parse_variable("Expect class name", VAR_PUB | VAR_CONST);
+    ObjString* class_name = copy_str(parser.previous.start, parser.previous.len);
+    mark_inititialised();
+    emit_const(OBJ_VAL((Obj*)new_class(class_name)));
+    consume(TOKEN_LEFT_BRACE, "Expect '{' before class body");
+    begin_scope();
+    bool set_class = false;
+    if(!current->scope.in_class)
+    {
+        current->scope.in_class = true;
+        set_class = true;
+    }
+    while(!check(TOKEN_RIGHT_BRACE) && !check(TOKEN_EOF))
+    {
+        uint8_t visibility = VAR_PRIV;
+        if(match(TOKEN_PROT))
+        {
+            visibility = VAR_PROT;
+        }
+        else if(match(TOKEN_PUB))
+        {
+            visibility = VAR_PUB;
+        }
+        else
+        {
+            match(TOKEN_PRIV);
+        }
+        if(match(TOKEN_VAR))
+        {
+            var_declaration(visibility);
+        }
+        else if(match(TOKEN_CONST))
+        {
+            visibility |= VAR_CONST;
+            var_declaration(visibility);
+        }
+        else if(match(TOKEN_FUNC))
+        {
+            visibility |= VAR_CONST | VAR_METHOD;
+            method_declaration(visibility);
+        }
+        else
+        {
+            error("Expect field or method declaration in class");
+            advance();
+            continue;
+        }
+        emit_attr(OBJ_VAL((Obj*)copy_str(current->scope.locals[current->scope.locals_size - 1].name.start, current->scope.locals[current->scope.locals_size - 1].name.len)), visibility);
+        remove_last_local();
+    }
+    consume(TOKEN_RIGHT_BRACE, "Expect '}' after class body");
+    end_func_scope();
+    if(set_class)
+    {
+        current->scope.in_class = false;
+    }
+    if(!IS_NULL(val))
+    {
+        hash_table_get(&current->globals, class_name, &val);
+        emit_set_var(val, false, true);
+        emit_inst(OP_POP);
+    }
 }
 
 static void declaration(bool in_func)
 {
     if(match(TOKEN_VAR))
     {
-        var_declaration(false);
+        var_declaration(VAR_PUB);
     }
     else if(match(TOKEN_CONST))
     {
-        var_declaration(true);
+        var_declaration(VAR_PUB | VAR_CONST);
     }
     else if(match(TOKEN_FUNC))
     {
         func_declaration();
+    }
+    else if(match(TOKEN_CLASS))
+    {
+        class_declaration();
     }
     else
     {
@@ -1832,7 +1996,7 @@ ParseRule rules[] = {
     [TOKEN_LEFT_BRACE]              = {NULL,     NULL,   PREC_NONE},
     [TOKEN_RIGHT_BRACE]             = {NULL,     NULL,   PREC_NONE},
     [TOKEN_COMMA]                   = {NULL,     NULL,   PREC_NONE},
-    [TOKEN_DOT]                     = {NULL,     NULL,   PREC_NONE},
+    [TOKEN_DOT]                     = {NULL,     dot,    PREC_CALL},
     [TOKEN_SEMICOLON]               = {NULL,     NULL,   PREC_NONE},
     [TOKEN_LEFT_SQR]                = {array,    NULL,   PREC_NONE},
     [TOKEN_RIGHT_SQR]               = {NULL,     NULL,   PREC_NONE},
@@ -1903,7 +2067,7 @@ ParseRule rules[] = {
     [TOKEN_RET]                     = {NULL,     NULL,   PREC_NONE},
     [TOKEN_SUPER]                   = {NULL,     NULL,   PREC_NONE},
     [TOKEN_STR_CAST]                = {cast,     NULL,   PREC_NONE},
-    [TOKEN_THIS]                    = {NULL,     NULL,   PREC_NONE},
+    [TOKEN_THIS]                    = {this_,    NULL,   PREC_NONE},
     [TOKEN_TRUE]                    = {literal,  NULL,   PREC_NONE},
     [TOKEN_VAR]                     = {NULL,     NULL,   PREC_NONE},
     [TOKEN_VIRTUAL]                 = {NULL,     NULL,   PREC_NONE},

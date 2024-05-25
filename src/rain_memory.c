@@ -82,6 +82,26 @@ static void free_obj(Obj* obj)
             FREE(ObjUpvalue, upvalue);
             break;
         }
+        case OBJ_CLASS:
+        {
+            ObjClass* klass = (ObjClass*)obj;
+            free_hash_table(&klass->attributes);
+            FREE(ObjClass, klass);
+            break;
+        }
+        case OBJ_INSTANCE:
+        {
+            ObjInstance* instance = (ObjInstance*)obj;
+            free_hash_table(&instance->attributes);
+            FREE(ObjInstance, instance);
+            break;
+        }
+        case OBJ_BOUND_METHOD:
+        {
+            ObjBoundMethod* bound = (ObjBoundMethod*)obj;
+            FREE(ObjBoundMethod, bound);
+            break;
+        }
         default:
         {
             break;
@@ -166,6 +186,28 @@ static void process_obj(Obj* obj)
                     mark_obj((Obj*)closure->upvalues[i].upvalue);
                 }
             }
+            break;
+        }
+        case OBJ_CLASS:
+        {
+            ObjClass* klass = (ObjClass*)obj;
+            mark_obj((Obj*)klass->name);
+            break;
+        }
+        case OBJ_INSTANCE:
+        {
+            ObjInstance* instance = (ObjInstance*)obj;
+            mark_obj((Obj*)instance->klass);
+            break;
+        }
+        case OBJ_BOUND_METHOD:
+        {
+            ObjBoundMethod* bound = (ObjBoundMethod*)obj;
+            if(IS_OBJ(bound->reciever))
+            {
+                mark_obj(AS_OBJ(bound->reciever));
+            }
+            mark_obj((Obj*)bound->method);
             break;
         }
         default:

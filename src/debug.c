@@ -1,6 +1,7 @@
 #include <debug.h>
 #include <value.h>
 #include <stdio.h>
+#include <hash_table.h>
 
 void disassemble_chunk(Chunk* chunk, const char* name)
 {
@@ -25,6 +26,17 @@ static size_t const_inst(const char* name, Chunk* chunk, size_t off_size, size_t
     print_value(chunk->consts.values[constant]);
     printf("'\n");
     return offset + inc_offset + 1;
+}
+
+static size_t attr_inst(const char* name, Chunk* chunk, size_t off_size, size_t offset)
+{
+    size_t inc_offset = 0;
+    size_t constant = read_chunk_const(chunk->code + offset + 1, &inc_offset, off_size);
+    uint8_t visibility = (uint8_t)chunk->code[offset + inc_offset + 1];
+    printf("%-16s %4zu '", name, constant);
+    print_value(chunk->consts.values[constant]);
+    printf("' %c %c %c\n", IS_VAR_METHOD(visibility) ? 'M' : 'F', IS_VAR_PUB(visibility) ? '+' : (IS_VAR_PROT(visibility) ? '*' : (IS_VAR_PRIV(visibility) ? '-' : '?')), IS_VAR_CONST(visibility) ? 'C' : 'V');
+    return offset + inc_offset + 2;
 }
 
 static size_t index_inst(const char* name, Chunk* chunk, size_t off_size, size_t offset)
@@ -414,6 +426,118 @@ size_t disassemble_inst(Chunk* chunk, size_t offset)
         case OP_CLOSE_UPVALUE:
         {
             return simple_inst("OP_CLOSE_UPVALUE", offset);
+        }
+        case OP_ATTR_BYTE:
+        {
+            return attr_inst("OP_ATTR_BYTE", chunk, 1, offset);
+        }
+        case OP_ATTR_SHORT:
+        {
+            return attr_inst("OP_ATTR_SHORT", chunk, 2, offset);
+        }
+        case OP_ATTR_WORD:
+        {
+            return attr_inst("OP_ATTR_WORD", chunk, 4, offset);
+        }
+        case OP_ATTR_LONG:
+        {
+            return attr_inst("OP_ATTR_LONG", chunk, 8, offset);
+        }
+        case OP_ATTR_GET_BYTE:
+        {
+           return const_inst("OP_ATTR_GET_BYTE", chunk, 1, offset); 
+        }
+        case OP_ATTR_GET_SHORT:
+        {
+           return const_inst("OP_ATTR_GET_SHORT", chunk, 2, offset); 
+        }
+        case OP_ATTR_GET_WORD:
+        {
+           return const_inst("OP_ATTR_GET_WORD", chunk, 4, offset); 
+        }
+        case OP_ATTR_GET_LONG:
+        {
+           return const_inst("OP_ATTR_GET_LONG", chunk, 8, offset); 
+        }
+        case OP_ATTR_PEEK_BYTE:
+        {
+           return const_inst("OP_ATTR_PEEK_BYTE", chunk, 1, offset); 
+        }
+        case OP_ATTR_PEEK_SHORT:
+        {
+           return const_inst("OP_ATTR_PEEK_SHORT", chunk, 2, offset); 
+        }
+        case OP_ATTR_PEEK_WORD:
+        {
+           return const_inst("OP_ATTR_PEEK_WORD", chunk, 4, offset); 
+        }
+        case OP_ATTR_PEEK_LONG:
+        {
+           return const_inst("OP_ATTR_PEEK_LONG", chunk, 8, offset); 
+        }
+        case OP_ATTR_SET_BYTE:
+        {
+           return const_inst("OP_ATTR_SET_BYTE", chunk, 1, offset); 
+        }
+        case OP_ATTR_SET_SHORT:
+        {
+           return const_inst("OP_ATTR_SET_SHORT", chunk, 2, offset); 
+        }
+        case OP_ATTR_SET_WORD:
+        {
+           return const_inst("OP_ATTR_SET_WORD", chunk, 4, offset); 
+        }
+        case OP_ATTR_SET_LONG:
+        {
+           return const_inst("OP_ATTR_SET_LONG", chunk, 8, offset); 
+        }
+        case OP_ATTR_GET_THIS_BYTE:
+        {
+           return const_inst("OP_ATTR_GET_THIS_BYTE", chunk, 1, offset); 
+        }
+        case OP_ATTR_GET_THIS_SHORT:
+        {
+           return const_inst("OP_ATTR_GET_THIS_SHORT", chunk, 2, offset); 
+        }
+        case OP_ATTR_GET_THIS_WORD:
+        {
+           return const_inst("OP_ATTR_GET_THIS_WORD", chunk, 4, offset); 
+        }
+        case OP_ATTR_GET_THIS_LONG:
+        {
+           return const_inst("OP_ATTR_GET_THIS_LONG", chunk, 8, offset); 
+        }
+        case OP_ATTR_PEEK_THIS_BYTE:
+        {
+           return const_inst("OP_ATTR_PEEK_THIS_BYTE", chunk, 1, offset); 
+        }
+        case OP_ATTR_PEEK_THIS_SHORT:
+        {
+           return const_inst("OP_ATTR_PEEK_THIS_SHORT", chunk, 2, offset); 
+        }
+        case OP_ATTR_PEEK_THIS_WORD:
+        {
+           return const_inst("OP_ATTR_PEEK_THIS_WORD", chunk, 4, offset); 
+        }
+        case OP_ATTR_PEEK_THIS_LONG:
+        {
+           return const_inst("OP_ATTR_PEEK_THIS_LONG", chunk, 8, offset); 
+        }
+        case OP_ATTR_SET_THIS_BYTE:
+        {
+           return const_inst("OP_ATTR_SET_THIS_BYTE", chunk, 1, offset); 
+        }
+        case OP_ATTR_SET_THIS_SHORT:
+        {
+           return const_inst("OP_ATTR_SET_THIS_SHORT", chunk, 2, offset); 
+        }
+        case OP_ATTR_SET_THIS_WORD:
+        {
+           return const_inst("OP_ATTR_SET_THIS_WORD", chunk, 4, offset); 
+        }
+        case OP_ATTR_SET_THIS_LONG:
+        {
+           return const_inst("OP_ATTR_SET_THIS_LONG", chunk, 8, offset); 
         }
         case OP_EXIT:
         {

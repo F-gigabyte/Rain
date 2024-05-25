@@ -1,14 +1,14 @@
 
-func radix_sort(list)
+func radix_sort(List<int> list) -> List<int>
 {
-    var input = list.copy();
-    var res = array[list.size()](0);
-    var counts = array[16](0);
-    var shift = 0;
+    var input: List<int> = list.copy();
+    var res: array<int> = array<int>[list.size()](0);
+    var counts: array<int> = array<int>[16](0);
+    var int shift = 0;
     for(var j = 0; j < 16; j++)
     {
         memset(counts, 0);
-        for(var i = 0; i < list.size(); i++)
+        for(var i: int = 0; i < list.size(); i++)
         {
             var index = (input[i] >> shift) & 0xf;
             counts[index]++;

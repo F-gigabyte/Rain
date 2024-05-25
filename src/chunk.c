@@ -115,6 +115,42 @@ void write_chunk_closure(Chunk* chunk, size_t const_index, size_t line)
     write_chunk_const_impl(chunk, const_index, line, OP_CLOSURE_BYTE, OP_CLOSURE_SHORT, OP_CLOSURE_WORD, OP_CLOSURE_LONG);
 }
 
+void write_chunk_attr(Chunk* chunk, size_t const_index, uint8_t visibility, size_t line)
+{
+    write_chunk_const_impl(chunk, const_index, line, OP_ATTR_BYTE, OP_ATTR_SHORT, OP_ATTR_WORD, OP_ATTR_LONG);
+    write_chunk(chunk, visibility, line);
+}
+
+void write_chunk_attr_get(Chunk* chunk, size_t const_index, size_t line)
+{
+    write_chunk_const_impl(chunk, const_index, line, OP_ATTR_GET_BYTE, OP_ATTR_GET_SHORT, OP_ATTR_GET_WORD, OP_ATTR_GET_LONG);
+}
+
+void write_chunk_attr_peek(Chunk* chunk, size_t const_index, size_t line)
+{
+    write_chunk_const_impl(chunk, const_index, line, OP_ATTR_PEEK_BYTE, OP_ATTR_PEEK_SHORT, OP_ATTR_PEEK_WORD, OP_ATTR_PEEK_LONG);
+}
+
+void write_chunk_attr_set(Chunk* chunk, size_t const_index, size_t line)
+{
+    write_chunk_const_impl(chunk, const_index, line, OP_ATTR_SET_BYTE, OP_ATTR_SET_SHORT, OP_ATTR_SET_WORD, OP_ATTR_SET_LONG);
+}
+
+void write_chunk_attr_get_this(Chunk* chunk, size_t const_index, size_t line)
+{
+    write_chunk_const_impl(chunk, const_index, line, OP_ATTR_GET_THIS_BYTE, OP_ATTR_GET_THIS_SHORT, OP_ATTR_GET_THIS_WORD, OP_ATTR_GET_THIS_LONG);
+}
+
+void write_chunk_attr_peek_this(Chunk* chunk, size_t const_index, size_t line)
+{
+    write_chunk_const_impl(chunk, const_index, line, OP_ATTR_PEEK_THIS_BYTE, OP_ATTR_PEEK_THIS_SHORT, OP_ATTR_PEEK_THIS_WORD, OP_ATTR_PEEK_THIS_LONG);
+}
+
+void write_chunk_attr_set_this(Chunk* chunk, size_t const_index, size_t line)
+{
+    write_chunk_const_impl(chunk, const_index, line, OP_ATTR_SET_THIS_BYTE, OP_ATTR_SET_THIS_SHORT, OP_ATTR_SET_THIS_WORD, OP_ATTR_SET_THIS_LONG);
+}
+
 size_t read_chunk_const(inst_type* inst, size_t* offset, size_t off_size)
 {
     size_t inst_size = sizeof(inst_type);

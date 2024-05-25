@@ -5,8 +5,8 @@
 #include <vm.h>
 
 #define TABLE_MAX_LOAD 0.75
-#define NULL_VAR (VarValue){.constant = false, .value = NULL_VAL}
-#define VAR_VALUE(constant, value) (VarValue){.constant = (constant), .value = (value)}
+#define NULL_VAR (VarValue){.scope = 0, .value = NULL_VAL}
+#define VAR_VALUE(scope, value) (VarValue){.scope = (scope), .value = (value)}
 
 void init_hash_table(HashTable* table)
 {
@@ -80,7 +80,7 @@ static void adjust_capacity(HashTable* table, size_t capacity)
     table->capacity = capacity;
 }
 
-bool hash_table_insert(HashTable* table, ObjString* key, bool constant, Value value)
+bool hash_table_insert(HashTable* table, ObjString* key, uint8_t scope, Value value)
 {
     if(table->count + 1 > table->capacity * TABLE_MAX_LOAD)
     {
@@ -94,7 +94,7 @@ bool hash_table_insert(HashTable* table, ObjString* key, bool constant, Value va
     {
         table->count++;
         entry->key = key;
-        entry->var = VAR_VALUE(constant, value);
+        entry->var = VAR_VALUE(scope, value);
     }
     return new_key;
 }
@@ -102,7 +102,7 @@ bool hash_table_insert(HashTable* table, ObjString* key, bool constant, Value va
 bool hash_table_set(HashTable* table, ObjString* key, Value value)
 {
     Entry* entry = find_entry(table->entries, table->capacity, key);
-    if(entry->key == NULL || entry->var.constant)
+    if(entry->key == NULL || IS_VAR_CONST(entry->var.scope))
     {
         return false;
     }
@@ -138,7 +138,7 @@ bool hash_table_delete(HashTable* table, ObjString* key)
     }
     entry->key = NULL;
     entry->var.value = BOOL_VAL(true);
-    entry->var.constant = false;
+    entry->var.scope = 0;
     return true;
 }
 
@@ -149,7 +149,7 @@ void copy_hash_table(HashTable* from, HashTable* to)
         Entry* entry = from->entries + i;
         if(entry->key != NULL)
         {
-            hash_table_insert(to, entry->key, entry->var.constant, entry->var.value);
+            hash_table_insert(to, entry->key, entry->var.scope, entry->var.value);
         }
     }
 }
@@ -181,7 +181,7 @@ ObjString* hash_table_find_str(HashTable* table, const char* chars, size_t len, 
 }
 
 
-uint8_t hash_table_is_const(HashTable* table, ObjString* key)
+uint8_t hash_table_get_scope(HashTable* table, ObjString* key)
 {
     if(table->count == 0)
     {
@@ -192,7 +192,7 @@ uint8_t hash_table_is_const(HashTable* table, ObjString* key)
     {
         return 0;
     }
-    return entry->var.constant == true ? 2 : 1;
+    return entry->var.scope + 1;
 }
 
 void hash_table_remove_clear(HashTable* table)
